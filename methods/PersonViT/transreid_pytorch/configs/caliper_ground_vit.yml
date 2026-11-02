@@ -1,0 +1,86 @@
+# PersonViT finetuned on the CALIPeR ground-field training corpus (230 ids / 2,623 tracklets /
+# 269,084 chips). Derived from configs/msmt17/vit_base.yml -- the config the zero-shot extractor used
+# -- so INPUT and MODEL geometry stay byte-identical to it and the finetuned row remains comparable
+# to the zero-shot one.
+#
+# WHAT IS HELD FIXED ACROSS METHODS, AND WHAT IS NOT. The controlled variable in this comparison is
+# the DATA: every method trains on the same corpus, through the same adapter, with the same
+# ResamplingIdentitySampler and the same <=32-frames-per-tracklet per-epoch cap. Optimisation is NOT
+# harmonised -- each method keeps whatever its authors tuned. Here that means SGD at 0.008 with 20
+# cosine warmup epochs, where BoT uses Adam at 3.5e-4 on a step schedule. Forcing those to match
+# would handicap a method away from its published settings, which would be less fair rather than
+# more.
+#
+# So IMS_PER_BATCH 64 / NUM_INSTANCE 4 below is PersonViT's own published MSMT17 setting, kept
+# unchanged. It happens to equal BoT's Market setting, which is a coincidence worth knowing (the two
+# methods do see the same per-epoch image budget) but is not the reason for the value.
+#
+# Deliberate differences from the stock MSMT17 recipe, all infrastructural:
+#
+#   PRETRAIN_CHOICE 'imagenet' with an EMPTY PRETRAIN_PATH. train_caliper.py transfers the ReID
+#   backbone itself via --init-weight, reporting per-tensor coverage and refusing to start on a
+#   shortfall. The repo's own build_transformer.load_param (model/make_model.py:253) wraps every copy
+#   in try/except-continue, so a shape-mismatched or partial load is indistinguishable from a clean
+#   one -- which for a finetune would quietly mean training from scratch.
+#
+#   NUM_WORKERS 8 -> 3, to match --cpus-per-task=3 (12 cores / 3 concurrent jobs).
+#
+#   EVAL_PERIOD / CHECKPOINT_PERIOD are overridden per run on the command line.
+
+MODEL:
+  PRETRAIN_CHOICE: 'imagenet'
+  PRETRAIN_PATH: ''                  # set by --init-weight in train_caliper.py
+  PRETRAIN_HW_RATIO: 1
+  METRIC_LOSS_TYPE: 'triplet'
+  IF_LABELSMOOTH: 'off'
+  IF_WITH_CENTER: 'no'
+  NAME: 'transformer'
+  NO_MARGIN: True
+  TRANSFORMER_TYPE: 'vit_base_patch16_224_TransReID'
+  STRIDE_SIZE: [16, 16]
+  # SIE_CAMERA stays False, as in the msmt17 config the zero-shot row came from. CALIPeR's camid is a
+  # range token, not a camera; enabling side information here would be a second change confounded
+  # with finetuning, and paperGR's query/gallery ranges are disjoint by construction anyway.
+
+INPUT:
+  SIZE_TRAIN: [256, 128]
+  SIZE_TEST: [256, 128]
+  PROB: 0.5                          # random horizontal flip
+  RE_PROB: 0.5                       # random erasing
+  PADDING: 10
+  PIXEL_MEAN: [0.5, 0.5, 0.5]        # matches the zero-shot extractor exactly -- NOT ImageNet stats
+  PIXEL_STD: [0.5, 0.5, 0.5]
+
+DATASETS:
+  NAMES: ('caliper_ground')
+  ROOT_DIR: ('')                     # unused; the adapter resolves chip paths itself
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet'
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 3
+
+SOLVER:
+  OPTIMIZER_NAME: 'SGD'
+  MAX_EPOCHS: 120
+  BASE_LR: 0.008
+  IMS_PER_BATCH: 64
+  WARMUP_EPOCHS: 20
+  WARMUP_METHOD: 'cosine'
+  LARGE_FC_LR: False
+  CHECKPOINT_PERIOD: 5
+  LOG_PERIOD: 400
+  EVAL_PERIOD: 5
+  WEIGHT_DECAY: 1e-4
+  WEIGHT_DECAY_BIAS: 1e-4
+  BIAS_LR_FACTOR: 2
+
+TEST:
+  EVAL: True
+  IMS_PER_BATCH: 128
+  RE_RANKING: False
+  WEIGHT: ''
+  NECK_FEAT: 'before'                # matches the zero-shot extractor
+  FEAT_NORM: 'yes'
+
+OUTPUT_DIR: ''
