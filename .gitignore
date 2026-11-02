@@ -2,6 +2,9 @@
 __pycache__/
 *.pyc
 
+# packaging build artifacts
+*.egg-info/
+
 # SLURM job logs
 *.out
 
