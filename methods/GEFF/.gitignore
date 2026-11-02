@@ -1,0 +1,10 @@
+.idea
+checkpoints
+pkls
+**/__pycache__/
+.DS_Store
+experiments
+
+# CALIPeR fork
+.vscode/
+weights/
