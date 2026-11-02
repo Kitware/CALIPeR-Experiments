@@ -2,7 +2,8 @@
 
 Method names below link to the upstream repo each is built on. **BoT, SINet, CLIP-ReID, and
 PersonViT links will be updated to point at our own forks** (CALIPeR training code included) once
-those are pushed. CAL and X-TFCLIP ship eval-only forks; SapiensID isn't modified at all.
+those are pushed. CAL, X-TFCLIP, and SapiensID all ship eval-only forks (feature extraction only,
+no fine-tuning) — SapiensID also carries one small upstream bugfix (an aligner indexing error).
 
 ## Headline: pre-trained vs. fine-tuned vs. fine-tuned + synthetic
 
