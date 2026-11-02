@@ -1,7 +1,13 @@
 # caliper_reid_eval
 
-Shared, method-agnostic components for the CALIPeR ReID benchmark. Every method repo puts this package
-on `PYTHONPATH` so the parts that must be identical across methods are written once.
+Code accompanying our CALIPeR person re-identification (ReID) publication. Shared, method-agnostic
+components for the CALIPeR ReID benchmark: every method repo puts this package on `PYTHONPATH` so the
+parts that must be identical across methods — the evaluation metric, the feature-cache format, the
+training corpus/sampler — are written once.
+
+## Results
+
+Generate a report from evaluation outputs with `python -m caliper_eval.results_table`.
 
 ## Two halves
 
