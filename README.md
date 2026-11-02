@@ -1,16 +1,26 @@
-# caliper_reid_eval
+# CALIPeR-Experiments
 
-Code accompanying our CALIPeR person re-identification (ReID) publication. Shared, method-agnostic
-components for the CALIPeR ReID benchmark: every method repo puts this package on `PYTHONPATH` so the
-parts that must be identical across methods — the evaluation metric, the feature-cache format, the
-training corpus/sampler — are written once.
+Official benchmarking code for the WACV 2027 paper **"CALIPeR: Co-Temporal Atmospheric Long-range
+Imagery for Person Re-identification."** Code accompanying our CALIPeR person re-identification (ReID)
+publication.
+
+## Layout
+
+- **`caliper_eval/`** — shared, method-agnostic components for the CALIPeR ReID benchmark. Every method
+  under `methods/` puts this package on `PYTHONPATH` so the parts that must be identical across
+  methods — the evaluation metric, the feature-cache format, the training corpus/sampler — are
+  written once.
+- **`methods/`** — one subdirectory per method, each a fork of its upstream repo with CALIPeR
+  integration added on top (full commit history preserved, including each fork's own README/LICENSE):
+  `reid-strong-baseline` (BoT), `SINet`, `CLIP-ReID`, `PersonViT` (fine-tuned + zero-shot),
+  `X-TFCLIP`, `GEFF` (CAL), `sapiensid` (zero-shot only).
 
 ## Results
 
 See **[RESULTS.md](RESULTS.md)** for the published numbers (zero-shot survey, and the fine-tuning +
 synthetic-augmentation headline table).
 
-## Two halves
+## caliper_eval modules
 
 **Evaluation (torch-free, numpy only)** — the original purpose.
 
@@ -43,7 +53,7 @@ synthetic-augmentation headline table).
 ## Install
 
 ```bash
-pip install -e .          # or just: export PYTHONPATH=/path/to/caliper_reid_eval:$PYTHONPATH
+pip install -e .          # or just: export PYTHONPATH=/path/to/caliper_eval:$PYTHONPATH
 ```
 
 ## Data
@@ -52,3 +62,9 @@ Reads `$CALIPER_DATA_ROOT/{splits,reid-chips}/` (default: `./data` relative to t
 Override the dataset tree with `CALIPER_DATA_ROOT`, the separate eval/training-output tree with
 `REID_BENCH_ROOT`, this package's own location (for the import fallback in method repos) with
 `CALIPER_EVAL_HOME`, and the training chip location (e.g. a `/dev/shm` stage) with `--chip-root`.
+
+## License
+
+Apache License 2.0 (see [LICENSE](LICENSE)) for the code in this repo (`caliper_eval/` and the docs).
+Each fork under `methods/` keeps its own upstream license — check that subdirectory before reusing
+its code independently.

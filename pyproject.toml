@@ -13,7 +13,7 @@ dependencies = ["numpy"]
 caliper-eval = "caliper_eval.eval_from_features:main"
 
 [tool.setuptools]
-license-files = ["methods/README.md"]
+license-files = ["LICENSE", "methods/README.md"]
 
 [tool.setuptools.packages.find]
 where = ["."]
