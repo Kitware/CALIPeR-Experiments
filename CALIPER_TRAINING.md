@@ -59,8 +59,7 @@ One invocation only — two runs renumber subjects per file and destroy every ma
 | `caliper_eval/train_corpus.py` | `GroundFieldCorpus` — training items. Pure stdlib. |
 | `caliper_eval/train_sampler.py` | `ResamplingIdentitySampler` — P×K, caps frames/tracklet in `__iter__` (runs once per epoch, so the draw is fresh each epoch) |
 
-`pid` dense 0..229 · `camid` = range token (`10m`…`1000m` → 0–5) · `clothes_id` = `(id, collection,
-set)`, 412 classes, CAL only.
+`pid` dense 0..229 · `camid` = range token (`10m`…`1000m` → 0–5).
 
 ## Method entrypoints
 
@@ -69,12 +68,10 @@ set)`, 412 classes, CAL only.
 | **bot** | `tools/train_caliper.py` |
 | **personvit** | `transreid_pytorch/train_caliper.py` |
 | **clip-reid** | `train_caliper.py` |
-| **sinet** | — |
-| **x-tfclip** | `train_caliper.py` |
-| cal | — |
+| **sinet** | `train_caliper.py` |
 
-Init = largest source corpus: bot→market1501, clip-reid→msmt17, personvit→msmt17, sinet→lsvid,
-x-tfclip→agvpreid, cal→last. Load backbone, reinit heads.
+Init = largest source corpus: bot→market1501, clip-reid→msmt17, personvit→msmt17, sinet→lsvid.
+Load backbone, reinit heads.
 
 Shared machinery in `caliper_eval/`: `train_entry.py` (single-GPU assert, reporting checkpoint loader,
 the standard flags), `train_metrics.py` (per-range val + `val_metrics.jsonl`), `train_metadata.py`
@@ -86,78 +83,23 @@ helpers.
 
 `SINet/caliper_ground.py` is written and verified: 230 ids / 2,623 tracklets / 269,084 frames, pids
 0..229, cams 0..5; holdout `thin` gives 2,318 tracklets over 200 ids with val query cams [4,5] against
-gallery [3]. It emits **3-tuples** `(img_paths, pid, camid)` — `utils/data_manager.py:179`'s shape,
-and a fourth distinct arity across the repos (bot 3-tuple per IMAGE, personvit/clip-reid 4-tuple per
-image, sinet 3-tuple per TRACKLET).
+gallery [3]. It emits **3-tuples** `(img_paths, pid, camid)` — `utils/data_manager.py:179`'s shape
+(bot emits 3-tuples per IMAGE, personvit/clip-reid 4-tuples per image, sinet 3-tuples per TRACKLET).
 
-Two things still open:
-
-**1. Entry point.** SINet is not importable: `args = parser.parse_args()` runs at module scope
-(`main.py:82`) and `train()`/`test()` read that global. So the pattern used for personvit and
-clip-reid — import the repo's pieces into a separate `train_caliper.py` — does not work here. Either add
-`--holdout`, `--holdout-rule` and `--chip-root` to `main.py`'s parser plus a provenance call (a small
-additive upstream edit, same category as the two already made to reid-strong-baseline), or copy
-`main()`'s body into a new entry point (~100 lines, follows the no-upstream-edits convention).
-
-**2. Video sampling.** An "epoch" means something different here. Measured:
+**Video sampling.** An "epoch" means something different here than for the image methods. Measured:
 
 | | epoch unit | frames/epoch |
 |---|---|--:|
 | bot / personvit / clip-reid | 73,664 images (`ResamplingIdentitySampler`, <=32/tracklet, redrawn) | 73,664 |
 | sinet | 2,623 tracklets x seq_len 4 | 10,492 |
-| x-tfclip | 2,623 tracklets x seq_len 8 | 20,984 |
 
 So a SINet epoch sees ~7x less data than a bot epoch, and the overtraining finding (peak by ~e25 of
-120) may not transfer — video methods could need MORE epochs, not fewer. Frame *selection* already
-agrees across both video methods (`TemporalRestrictedCrop` and `rrs_train` are both restricted random
-sampling: chop into seq_len chunks, draw one frame per chunk, redraw each epoch). `seq_len` is not
-free for x-tfclip — its `video_embed` is shaped `(8, 768)` and `TMD` is built with `T=SEQ_LEN`, so
-changing it invalidates the AG-VPReID checkpoint.
+120) may not transfer — video methods could need MORE epochs, not fewer. Frame selection is
+restricted random sampling: chop into seq_len chunks, draw one frame per chunk, redraw each epoch.
 
-Sampling recommendation: keep each repo's native sampling and published epoch count, and let the
-holdout val curve plus retained checkpoints locate the epoch — same as the image methods, keeping the
-controlled variable the data rather than the sampler. Rejected alternative: sampling multiple clips
-per tracklet per epoch to close the gap, since running more epochs achieves the same with no
-deviation. Unverified: what SINet does with tracklets shorter than `seq_len` (x-tfclip pads by
-repeating the final frame).
-
-### X-TFCLIP — where it stands
-
-`datasets/caliper_ground.py`, `configs/caliper_ground_xtfclip.yml` and `train_caliper.py` are written and
-smoke-tested (4 epochs, holdout and no-holdout). Verified: `loaded 252 | skipped 4 (classifier) |
-mismatch 0 | unfilled 0`; epoch = 2,424 tracklets / **134 iterations** at IMS_PER_BATCH 18 (2,178 /
-121 under a 30-id holdout); loss 11.8 → 7.0 and `Acc_clip` 0.67 → 0.87 over 4 epochs; per-range
-`val_metrics.jsonl` written; checkpoints land on BOTH run types.
-
-Throughput depends on hardware and concurrent workloads.
-
-⚠ **The first ~4 minutes of every run are not training.** `do_train_stage2` builds the CLIP-Memory
-bank before epoch 1 by walking the whole corpus once, forward-only, at `sample='dense'`: 269,084
-frames at ~960 frames/s, ~5 training epochs' worth. Do not read a quiet first four minutes as a hung
-job. Its largest single forward is the 521-frame tracklet as 65 clips x 8 = **520 images at once**;
-measured to fit an A6000 comfortably under `no_grad` + autocast.
-
-**Four upstream defects, none fixed by editing upstream** — `do_train_stage2` runs verbatim and the
-names it resolves at call time are rebound from the entry point, the technique CLIP-ReID's entry point
-already uses. See `X-TFCLIP/train_caliper.py`'s module docstring. Two of the four are silent; one of
-those was not in the original survey:
-
-| defect | silent? |
-|---|---|
-| `train.py:13` imports `do_train_stage1` -> nonexistent `baselines` package | no, import error |
-| `processor_clipreid_stage2.py:267` unpacks `compute_v2()`'s 14 returns into 7 | no, crash |
-| `R1_mAP_eval.compute()` uses `gf = feats[0:]`, the WHOLE set, as the gallery (`utils/metrics.py:206-208`) | **YES** |
-| `save_checkpoint` gated inside the eval block, single overwritten filename (`:281`) | **YES** |
-| `clip_memory_features/` keyed on batch index while its loader is `shuffle=True` (`:86-121`) | **YES** |
-| `best_cmc` initialised to a float, assigned only under `is_best`, indexed unconditionally at `:287` | **YES**, at the very end |
-
-The last one is the one a no-holdout run hits: all-zero val -> `is_best` never fires -> `TypeError`
-after the final epoch, past every checkpoint but with a non-zero exit the launcher reads as
-TRAIN FAILED. Handled by making the first empty-val call compare as best.
-
-**Not used here: `disable_eval_if_no_holdout`.** Every other method calls it; X-TFCLIP must not,
-because in this repo disabling evaluation also disables saving. The metric shim tolerates an empty val
-set instead, which keeps the save path alive on full-230 runs.
+Kept each repo's native sampling and published epoch count, and let the holdout val curve plus
+retained checkpoints locate the epoch — same as the image methods, keeping the controlled variable
+the data rather than the sampler.
 
 ### BoT
 
@@ -185,11 +127,12 @@ warms the page cache anyway. tmpfs buys guaranteed residency, not speed, and bei
 still be paged out.
 
 *Rejected:* a pre-decoded, pre-resized chip cache to remove decode+resize (59% of dataloader cost).
-Abandoned because it cannot serve most methods -- bot resizes BILINEAR, x-tfclip is 288x144, and CAL's
-`ResizeWithEqualScale` pads to preserve aspect ratio rather than scaling -- leaving only clip-reid's
-stage 2 to benefit, and an end-to-end loader comparison there disagreed for reasons never isolated.
+Abandoned because it cannot serve most methods -- each uses a different resize convention (e.g. BoT
+resizes BILINEAR) -- leaving only CLIP-ReID's stage 2 to benefit, and an end-to-end loader comparison
+there disagreed for reasons never isolated.
 
 **Schedule finding:** the published 120 epochs badly overtrains this corpus **for BoT** -- val peaks
 by ~e25 and declines 10-13 mAP points by e120, across all three holdout rules. It does NOT generalise:
 PersonViT ends higher than it started on 4 of 6 curves, CLIP-ReID falls only 3-5 points (and peaks at
-its first readout), and SINet is still rising at epoch 600. Epoch selection must be validated separately for each method.
+its first readout), and SINet is still rising at epoch 600. Overtraining at this schedule is
+BoT-specific, not a corpus-wide property.

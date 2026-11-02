@@ -181,11 +181,6 @@ def add_caliper_args(ap, default_config="", default_init=""):
                          'require 500m.')
     ap.add_argument("--frames-per-tracklet", type=int, default=32, help="per-epoch cap; 0 = all")
     ap.add_argument("--chip-root", default="", help="override the chip root (e.g. a /dev/shm stage)")
-    ap.add_argument("--chip-cache", default="",
-                    help="read pre-decoded, pre-resized pixels from this cache instead of decoding "
-                         "JPEGs (see caliper_eval.chip_cache). ONLY for methods verified bit-identical "
-                         "against it by verify_cache.py --method: the cache is bicubic 256x128, and "
-                         "e.g. reid-strong-baseline resizes BILINEAR, so it must not use this.")
     ap.add_argument("--seed", type=int, default=1234)
     ap.add_argument("opts", default=None, nargs=argparse.REMAINDER)
     return ap
