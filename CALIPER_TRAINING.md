@@ -71,7 +71,9 @@ One invocation only — two runs renumber subjects per file and destroy every ma
 | **sinet** | `train_caliper.py` |
 
 Init = largest source corpus: bot→market1501, clip-reid→msmt17, personvit→msmt17, sinet→lsvid.
-Load backbone, reinit heads.
+Load backbone, reinit heads. Each init checkpoint is that method's own released pretrained weights
+(download from its own repo's README/model zoo — see the links in [RESULTS.md](RESULTS.md)), not
+redistributed here.
 
 Shared machinery in `caliper_eval/`: `train_entry.py` (single-GPU assert, reporting checkpoint loader,
 the standard flags), `train_metrics.py` (per-range val + `val_metrics.jsonl`), `train_metadata.py`
