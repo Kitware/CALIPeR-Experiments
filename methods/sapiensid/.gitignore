@@ -1,0 +1,9 @@
+no_commit/
+wandb/
+checkpoints
+*.zip
+*.pyc
+__pycache__/
+.env
+.vscode
+experiments
