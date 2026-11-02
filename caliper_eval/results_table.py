@@ -29,43 +29,31 @@ def combo_key(c):
     return (0, near[-1] + 0.5, c) if near else (1, 0, c)
 
 # split dir -> (display name, query -> gallery, provenance)
+# Scoped to exactly what feeds the published results (RESULTS.md): the zero-shot survey and
+# fine-tuning headline table (paperGR), the four "other modalities" columns (ground-aerial_test,
+# enroll-field_test, the two clothing splits, cross-collection_test), and the simulated-vs-real
+# comparison (ground_range_sim). All but ground_range_sim use the identity-partitioned ("_test")
+# splits, so none of these rows mix training identities into the gallery as distractors.
 KNOWN = collections.OrderedDict([
     ('combined_brc1_brc2/paperGR', ('paperGR', 'gallery 380m → query 500m + 1000m',
      'combined_brc1_brc2_test/test_ground-range_combined_paperGR.json')),
-    ('kitbrc1/ground_range', ('ground_range (LEGACY)', 'gallery 380m → query 500m + 1000m',
-     'built pre-partition from benchmark-data-new/KITBRC1')),
-    ('kitbrc1/ground_range_sim', ('ground_range_sim (LEGACY)', 'real 380m gallery → pyBSM-degraded queries',
-     'built pre-partition; 3 Cn² levels')),
-    ('combined_brc1_brc2/cross-collection', ('cross-collection', 'BRC1 field → BRC2 field',
-     'built from the UNPARTITIONED combined_brc1_brc2/')),
-    ('combined_brc1_brc2/cross-collection_test', ('cross-collection (partitioned)',
+    ('kitbrc1/ground_range_sim', ('ground_range_sim', 'real 380m gallery → pyBSM-degraded queries',
+     'built pre-partition; 3 Cn² levels -- feeds the simulated-vs-real comparison, not the main survey')),
+    ('combined_brc1_brc2/cross-collection_test', ('cross-collection (Longitudinal)',
      'BRC1 field → BRC2 field, test ids only',
      'combined_brc1_brc2_test/test_cross-collection_combined.json')),
-    ('combined_brc1_brc2/ground-aerial', ('ground-aerial', 'ground cams → aerial cams',
-     'built from the UNPARTITIONED combined_brc1_brc2/')),
-    ('combined_brc1_brc2/ground-aerial_test', ('ground-aerial (partitioned)',
+    ('combined_brc1_brc2/ground-aerial_test', ('ground-aerial (Ground-vs-Elevated)',
      'ground cams → aerial cams, test ids only',
      'combined_brc1_brc2_test/test_ground-aerial_combined.json')),
-    ('combined_brc1_brc2/enroll-field_test', ('enroll-field (partitioned)',
+    ('combined_brc1_brc2/enroll-field_test', ('enroll-field (Enroll-vs-Field)',
      'field video → enrollment stills + gait, test ids only',
      'combined_brc1_brc2_test/test_enroll-field_combined.json')),
-    ('combined_brc1_brc2/clothing-brc1_test', ('clothing BRC1 (partitioned)',
+    ('combined_brc1_brc2/clothing-brc1_test', ('clothing BRC1 (Same-collect-CC)',
      'BRC1 set1 → BRC1 set2, test ids only',
      'combined_brc1_brc2_test/test_clothing_combined_brc1.json')),
-    ('combined_brc1_brc2/clothing-brc2_test', ('clothing BRC2 (partitioned)',
+    ('combined_brc1_brc2/clothing-brc2_test', ('clothing BRC2 (Same-collect-CC)',
      'BRC2 set1 → BRC2 set2, test ids only',
      'combined_brc1_brc2_test/test_clothing_combined_brc2.json')),
-    ('combined_brc1_brc2/clothing-brc1_test_fieldonly', ('clothing BRC1 (field only)',
-     'BRC1 set1 -> set2, field video only, test ids only',
-     'derived: manifests/clothing-brc1_fieldonly.json (controlled media removed)')),
-    ('combined_brc1_brc2/clothing-brc2_test_fieldonly', ('clothing BRC2 (field only)',
-     'BRC2 set1 -> set2, field video only, test ids only',
-     'derived: manifests/clothing-brc2_fieldonly.json (controlled media removed)')),
-    ('combined_brc1_brc2/enroll-field_test_wbonly', ('enroll-field (wb only)',
-     'field video -> controlled whole-body + gait, test ids only',
-     'derived: manifests/enroll-field_wbonly.json (controlled/face removed)')),
-    ('combined_brc1_brc2/q1000', ('q1000 (probe)', 'all other ranges → query 1000m',
-     'combined_brc1_brc2_test/test_ground-range_combined_q1000.json')),
 ])
 
 # Placeholder for an unavailable score.
@@ -115,12 +103,9 @@ def main():
     for f in glob.glob(osp.join(E, '*', '*', '*', '*', 'eval_*.json')):
         p = f.split(osp.sep)
         cells['{}/{}'.format(p[-5], p[-4])]['{}/{}'.format(p[-3], p[-2])] = json.load(open(f))['results']['video']
-    # A KNOWN split is listed as soon as its kwcoco exists, even with no eval cells yet: its identity
-    # counts and post-training validity are already decided by the split, and listing it is what keeps
-    # a planned-but-unextracted split visible instead of silently absent.
-    candidates = list(KNOWN) + sorted(s for s in cells if s not in KNOWN)
-    metas = {s: split_meta(s, train_ids) for s in candidates}
-    order = [s for s in candidates if metas.get(s)]
+    # Include known splits with manifests, even before features are extracted.
+    metas = {s: split_meta(s, train_ids) for s in KNOWN}
+    order = [s for s in KNOWN if metas.get(s)]
 
     L = ["# CALIPeR ReID results\n",
          "Video pooling, cosine, all frames (`--max-per-video 0`). Regenerate with",
@@ -139,7 +124,7 @@ def main():
             name, desc, m['g'], m['gi'], m['q'], m['qi'], m['ntr'], ok,
             '{} combos'.format(len(cells[s])) if cells[s] else '**{}**'.format(PENDING)))
 
-    combos = sorted({c for v in cells.values() for c in v}, key=combo_key)
+    combos = sorted({c for s in order for c in cells[s]}, key=combo_key)
     L += ["", "## Which method ran on which split\n",
           "| method / source | " + " | ".join(KNOWN.get(s, (s,))[0] for s in order) + " |",
           "|---" * (1 + len(order)) + "|"]
@@ -182,24 +167,20 @@ def main():
                 c, cellstr, r['combined']['mAP'] * 100, r['combined']['rank1'] * 100))
 
     L += ["", "---", "", "## Notes", "",
-          "- **`paperGR` is the only ground-range split built on the identity partition.** "
-          "`ground_range`/`ground_range_sim` are legacy (100 subjects, 28 of them training identities, "
-          "and an old confidence gate on the 1000m stratum). Not comparable cell-for-cell.",
-          "- **`ground-aerial` and `cross-collection` contain training identities** — both were built "
-          "from the unpartitioned `combined_brc1_brc2/`, not the `_test` variant, despite the latter "
-          "existing. `ground-aerial` carries all 232; `cross-collection` carries 89, all of them "
-          "gallery distractors (its query side was built `--mated-only`, so it holds 39 test ids).",
-          "- **The `(partitioned)` splits are the fixed re-cuts of those two, plus `enroll-field`.** "
-          "Same protocols, rebuilt from `combined_brc1_brc2_test/` so every identity on both sides is "
-          "in the 170-id test partition. They are ADDITIONS, not replacements: the unpartitioned rows "
-          "stay so the existing zero-shot numbers remain readable.",
-          "- ⚠ **Partitioned and unpartitioned rows are NOT comparable cell-for-cell.** Dropping the "
-          "training identities also drops them as gallery distractors — `cross-collection` goes 202 → "
-          "113 gallery ids and `ground-aerial` 400 → 170 — so the partitioned splits are EASIER and "
-          "will score higher for reasons that have nothing to do with the model.",
-          "- **`cross-collection` is open-set** (39 mated of 96 query ids) and `eval_reid.py` silently "
-          "drops unmated probes. ~±15 pp Rank-1 resolution; qualitative only. The partitioned re-cut "
-          "keeps the same 39 mated ids, so it is open-set on the same terms.",
+          "- **Every split here except `ground_range_sim` uses the identity-partitioned (`_test`) "
+          "variant** — training identities are excluded from the gallery, so distractor counts are "
+          "consistent across rows and comparable to the fine-tuned checkpoints' own eval. Dropping "
+          "training identities from a gallery also drops them as distractors, which would otherwise "
+          "make an unpartitioned split score higher for reasons that have nothing to do with the "
+          "model -- so don't compare these numbers against an unpartitioned run of the same split.",
+          "- **`ground_range_sim` predates the identity partition** (100 subjects, 28 training "
+          "identities) and isn't part of the main zero-shot survey — it exists to compare simulated "
+          "vs. real query CMC curves (same real 380m gallery, pyBSM-degraded 1000m queries at 3 "
+          "turbulence strengths vs. real 1000m queries).",
+          "- **`cross-collection` is open-set** (39 mated of 96 query ids); a query with no gallery "
+          "match is excluded from the mean automatically (now recorded as `dropped_queries` in the "
+          "eval JSON, see `eval_from_features.py --cam-exclusion`). ~±15 pp Rank-1 resolution; "
+          "qualitative only.",
           "- **`enroll-field`'s gallery is 232 ids but 0 of them are training ids** — it is the 170 test "
           "subjects plus the 62 canonical ids that carry no field media and so fall in neither "
           "partition, kept as enrollment distractors.",

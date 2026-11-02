@@ -24,15 +24,23 @@ sharing `(pid, camid)` with the query — correct for Market1501, but on the Lon
 (cross-collection) split a true match can legitimately share a camera id with its query, so this
 silently dropped genuine matches. Verified on BoT/Market1501: the old buggy code reproduced this
 repo's previously-logged number (mAP 1.0 / R1 3.3) exactly; the fix moves it to 1.2 / 4.7, toward
-the published 2.4 / 5.8. The remaining gap is assumed to be noise (low query count, low-single-digit
-mAP, so a handful of rank-1 hits swings it by a point or two) — **not yet independently confirmed**.
+the published 2.4 / 5.8.
+
+The remaining gap most likely isn't noise — it's that this test ran against the *unpartitioned*
+cross-collection split (202 gallery ids, including 89 training identities as extra distractors),
+while the published numbers almost certainly used the identity-partitioned `cross-collection_test`
+split (113 gallery ids, 0 training identities) that `results_table.py` now reports exclusively.
+Per that script's own notes: removing training identities also removes them as distractors, which
+legitimately raises mAP/R1 — not noise, a real protocol difference. **Not yet independently
+confirmed** because BoT/Market1501 (and the other 3 affected rows) have never actually been
+extracted against `cross-collection_test` — only CAL and X-TFCLIP have features there so far.
 
 **Follow-up to do before fully trusting this column:**
-- Re-run the other 3 rows that had the same discrepancy on this column (SINet/LS-VID,
-  PersonViT/MSMT17, SapiensID/WebBody-12M) with the fix and confirm the same pattern.
-- Check whether the other "other modalities" columns (especially Same-collect-CC, which like
-  Longitudinal spans separate collections/cameras) have the same camid-exclusion sensitivity, or
-  whether it's isolated to Longitudinal.
+- Run feature extraction for BoT, SINet, CLIP-ReID, PersonViT, and SapiensID's zero-shot checkpoints
+  against `cross-collection_test` (not just the unpartitioned `cross-collection`), then re-score with
+  the fixed eval code, and confirm the numbers land on the published 2.4/5.8-style values.
+- Check whether the other "other modalities" columns have the same camid-exclusion sensitivity —
+  less likely to matter now that they're all partitioned splits already, but not yet checked.
 
 ## Full zero-shot survey (all methods, all released checkpoints)
 
