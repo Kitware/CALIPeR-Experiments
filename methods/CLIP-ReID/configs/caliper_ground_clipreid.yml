@@ -1,0 +1,106 @@
+# CLIP-ReID finetuned on the CALIPeR ground-field training corpus (230 ids / 2,623 tracklets /
+# 269,084 chips). Derived from configs/person/vit_clipreid.yml -- the published person recipe, and the
+# one the zero-shot row came from -- so INPUT and MODEL geometry stay identical and the finetuned row
+# remains comparable to the zero-shot one.
+#
+# WHAT IS HELD FIXED ACROSS METHODS, AND WHAT IS NOT. The controlled variable is the DATA: same
+# corpus, same adapter, same ResamplingIdentitySampler, same <=32-frames-per-tracklet cap.
+# Optimisation is NOT harmonised -- each method keeps what its authors tuned. So the two-stage
+# schedule, the Adam LRs (3.5e-4 stage 1, 5e-6 stage 2) and STEPS below are CLIP-ReID's own.
+#
+# THE TWO STAGES ARE NOT SYMMETRIC, which matters for how the run matrix is read:
+#   STAGE1 trains ONLY the text prompt tokens, with the image encoder frozen and image features
+#          cached once before the epoch loop (processor_clipreid_stage1.py:47-52). Cheap, and it
+#          cannot overfit the encoder because it never touches it.
+#   STAGE2 trains the image encoder, using those prompts as a fixed target via the i2t loss. This is
+#          the stage that overfits, and the only stage that writes checkpoints
+#          (processor_clipreid_stage2.py:133).
+# One run therefore yields the whole STAGE2 epoch curve for free but pins STAGE1 at one value.
+# Exploring STAGE1 properly would be a 2-D grid; instead the matrix carries a single 60-epoch STAGE1
+# probe against the default 120, holding STAGE2 fixed.
+#
+# Infrastructural differences from the stock recipe:
+#   NUM_WORKERS 8 -> 3, matching --cpus-per-task.
+#   STAGE2 CHECKPOINT_PERIOD/EVAL_PERIOD 60 -> 5, so every epoch of the curve is retained and
+#   scoreable later without retraining. The stock value writes exactly one checkpoint, at the end.
+
+MODEL:
+  PRETRAIN_CHOICE: 'imagenet'
+  METRIC_LOSS_TYPE: 'triplet'
+  IF_LABELSMOOTH: 'on'
+  IF_WITH_CENTER: 'no'
+  NAME: 'ViT-B-16'
+  STRIDE_SIZE: [16, 16]
+  ID_LOSS_WEIGHT: 0.25
+  TRIPLET_LOSS_WEIGHT: 1.0
+  I2T_LOSS_WEIGHT: 1.0
+  # SIE_CAMERA stays off, as in the person recipe the zero-shot row came from. CALIPeR's camid is a
+  # range token, not a camera; turning it on would be a second change confounded with finetuning.
+
+INPUT:
+  SIZE_TRAIN: [256, 128]
+  SIZE_TEST: [256, 128]
+  PROB: 0.5
+  RE_PROB: 0.5
+  PADDING: 10
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+
+DATASETS:
+  NAMES: ('caliper_ground')
+  ROOT_DIR: ('')                     # unused; the adapter resolves chip paths itself
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet'
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 3
+
+SOLVER:
+  STAGE1:
+    IMS_PER_BATCH: 64
+    OPTIMIZER_NAME: "Adam"
+    BASE_LR: 0.00035
+    WARMUP_LR_INIT: 0.00001
+    LR_MIN: 1e-6
+    WARMUP_METHOD: 'linear'
+    WEIGHT_DECAY: 1e-4
+    WEIGHT_DECAY_BIAS: 1e-4
+    # 15, NOT the published 120. An "epoch" here is a pass over the training set, and the recipe was
+    # tuned on Market1501: 12,936 images / batch 64 = 202 iterations per epoch, so 120 epochs is
+    # 24,240 prompt-training updates. Our corpus is 233,821 images = 3,654 iterations per epoch, so
+    # 120 epochs would be 438,480 updates -- 18x what the recipe calls for, and 11.6 h of wall clock
+    # (measured 5.8 min/epoch). Matching UPDATES rather than epochs gives ~7 epochs against Market
+    # and ~17 against MSMT17 (32,621 images, 61,152 updates); we init from MSMT17, so 15.
+    # This is the same trap that made bot's stage-equivalent 120-epoch schedule overtrain badly.
+    MAX_EPOCHS: 15
+    CHECKPOINT_PERIOD: 15
+    LOG_PERIOD: 500
+    WARMUP_EPOCHS: 2          # scaled with MAX_EPOCHS (published 5 of 120)
+
+  STAGE2:
+    IMS_PER_BATCH: 64
+    OPTIMIZER_NAME: "Adam"
+    BASE_LR: 0.000005
+    WARMUP_METHOD: 'linear'
+    WARMUP_ITERS: 10
+    WARMUP_FACTOR: 0.1
+    WEIGHT_DECAY: 0.0001
+    WEIGHT_DECAY_BIAS: 0.0001
+    LARGE_FC_LR: False
+    MAX_EPOCHS: 60
+    CHECKPOINT_PERIOD: 5
+    LOG_PERIOD: 400
+    EVAL_PERIOD: 5
+    BIAS_LR_FACTOR: 2
+    STEPS: [30, 50]
+    GAMMA: 0.1
+
+TEST:
+  EVAL: True
+  IMS_PER_BATCH: 128
+  RE_RANKING: False
+  WEIGHT: ''
+  NECK_FEAT: 'before'                # matches the zero-shot extractor
+  FEAT_NORM: 'yes'
+
+OUTPUT_DIR: ''
