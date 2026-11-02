@@ -7,7 +7,8 @@ training corpus/sampler — are written once.
 
 ## Results
 
-Generate a report from evaluation outputs with `python -m caliper_eval.results_table`.
+See **[RESULTS.md](RESULTS.md)** for the published numbers (zero-shot survey, and the fine-tuning +
+synthetic-augmentation headline table).
 
 ## Two halves
 
