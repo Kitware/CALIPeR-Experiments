@@ -59,7 +59,7 @@ The unmodified real corpus. One run per method, and every synthetic run is compa
 ⚠ **SINet's seed is 1, not 1234.** It reuses upstream's own parser, whose `--seed` default is 1; the
 other three take 1234 from `add_caliper_args`. It is applied consistently within SINet — its real and
 synthetic runs both use 1 — so SINet's own contrast is unaffected, but the blanket claim "seed 1234"
-that appears in `the generated results report` and the plot subtitles is wrong for SINet.
+that appears in `the generated results report` is wrong for SINet.
 
 ⚠ **CLIP-ReID is the only two-stage method.** Stage 1 fits one 4-token text phrase per identity
 against a frozen cache of every training image, walked **once, uncapped and outside any sampler**;

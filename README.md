@@ -21,18 +21,24 @@ synthetic-augmentation headline table).
 | `eval_from_features.py` | mAP / CMC over a cached feature set — run identically for every method |
 | `eval_reid.py` | vendored Market1501 metric |
 | `split_from_combined.py` | video-level split JSON → crop-level kwcoco |
+| `stage_chips.py` | stage training/eval chips onto a faster local disk (e.g. `/dev/shm`) |
+| `results_table.py` | regenerates the published results table from cached eval output — see [RESULTS.md](RESULTS.md) |
 
 **Training (adds a torch dependency for the sampler only)** — see **[CALIPER_TRAINING.md](CALIPER_TRAINING.md)**.
 
 | module | role |
 |---|---|
 | `train_corpus.py` | `GroundFieldCorpus` — the labelled ground-field training items (pure stdlib) |
-| `train_sampler.py` | `ResamplingIdentitySampler` — P×K with per-epoch frame re-draw |
+| `train_sampler.py` | `ResamplingIdentitySampler` / `MixingIdentitySampler` / `MixingTrackletSampler` — P×K sampling, with the variants that support the synthetic-augmentation study |
+| `train_entry.py` | shared CLI flags, checkpoint loading, and the corpus-composition assertions every method's `train_caliper.py` entry point uses |
+| `train_metrics.py` | per-range validation metrics, written to `val_metrics.jsonl` during training |
+| `train_metadata.py` | writes `run.json` next to each checkpoint (git SHA, config, explicit held-out id list) |
 
 ## Start here
 
 - Finetuning a method on CALIPeR → **[CALIPER_TRAINING.md](CALIPER_TRAINING.md)**
 - Scoring features → `python -m caliper_eval.eval_from_features --features-dir DIR --pooling video --metric cosine --max-per-video 0`
+- Regenerating the published results table → `python -m caliper_eval.results_table`
 
 ## Install
 

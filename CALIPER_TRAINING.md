@@ -120,11 +120,27 @@ load fails on the 751 vs 230 classifier), hence `'none'` + explicit transfer.
 
 ## Performance
 
-Profile the data loader as well as GPU execution when tuning throughput.
+**Training here was CPU-starved, not GPU-starved** -- a four-GPU box behind a six-core CPU, fully
+dataloader-bound (GPUs idling at 36-93% during training). If reproducing on different hardware,
+check which side you're bound on before assuming more/faster GPUs will help.
 
-**Staging to `/dev/shm` does not speed anything up** (678 img/s vs 680 from HDD) -- copying the chips
-warms the page cache anyway. tmpfs buys guaranteed residency, not speed, and being swap-backed it can
-still be paged out.
+MEASURED END-TO-END on that box (a GPU-only microbenchmark undercounted real throughput by ~3x --
+don't trust a GPU-only benchmark's epoch-time estimate):
+
+| | s/epoch | samples/s |
+|---|--:|--:|
+| bot (ResNet50), solo, 200 ids | 122 | 545 |
+| bot, 3 concurrent | 166-196 | 383-453 |
+| personvit (ViT-B/16), 3 concurrent | 185-221 | ~400 |
+| clip-reid stage 2, 4 concurrent (one noisy sample) | ~420 | 176 |
+
+Per-op share of the dataloader, single-threaded: Resize bicubic 35% - JPEG decode 24% - ToTensor 23%
+- Normalize 10% - Pad+RandomCrop 8%. Full 120-epoch runs took **6-7.4 h**, not the 1.7-2.9 h a
+GPU-only estimate predicted.
+
+**Staging chips to a tmpfs (`/dev/shm`) did not speed anything up** (678 img/s vs 680 from HDD) --
+copying the chips warms the page cache anyway. tmpfs buys guaranteed residency, not speed, and being
+swap-backed it can still be paged out.
 
 *Rejected:* a pre-decoded, pre-resized chip cache to remove decode+resize (59% of dataloader cost).
 Abandoned because it cannot serve most methods -- each uses a different resize convention (e.g. BoT
