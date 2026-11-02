@@ -1,0 +1,62 @@
+# BoT finetuned on the CALIPeR ground-field training corpus (230 ids / 2,623 tracklets / 269,084 chips).
+#
+# Derived from softmax_triplet_with_center.yml. Two deliberate differences from the Market recipe:
+#
+#   PRETRAIN_CHOICE 'imagenet' -- NOT 'self'. The 'self' branch in tools/train.py parses start_epoch
+#   out of the FILENAME (`..._rank1_945.pth` -> start_epoch 945, past every LR milestone) and does a
+#   STRICT load_state_dict, which cannot work here: the Market checkpoint's classifier is (751, 2048)
+#   and ours is (230, 2048). tools/train_caliper.py instead loads the ReID backbone via
+#   Baseline.load_param(), which skips classifier keys, leaving a freshly initialised 230-way head.
+#
+#   IMS_PER_BATCH 64 / NUM_INSTANCE 4 -- P=16 identities x K=4. ResamplingIdentitySampler re-draws
+#   <=32 frames per tracklet each epoch, giving ~73.7k images/epoch out of the 269k corpus.
+
+MODEL:
+  PRETRAIN_CHOICE: 'imagenet'
+  PRETRAIN_PATH: ''                 # set by --init-weight in tools/train_caliper.py
+  METRIC_LOSS_TYPE: 'triplet'
+  IF_LABELSMOOTH: 'on'
+  IF_WITH_CENTER: 'no'
+  NAME: 'resnet50'
+  LAST_STRIDE: 1
+  NECK: 'bnneck'
+
+INPUT:
+  SIZE_TRAIN: [256, 128]
+  SIZE_TEST: [256, 128]
+  PROB: 0.5
+  RE_PROB: 0.5
+  PADDING: 10
+  PIXEL_MEAN: [0.485, 0.456, 0.406]   # ImageNet -- matches the zero-shot extractor exactly
+  PIXEL_STD: [0.229, 0.224, 0.225]
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet'
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 3                    # matches --cpus-per-task=3; 12 cores / 3 concurrent jobs
+
+SOLVER:
+  OPTIMIZER_NAME: 'Adam'
+  MAX_EPOCHS: 120
+  BASE_LR: 0.00035
+  BIAS_LR_FACTOR: 2
+  WEIGHT_DECAY: 0.0005
+  WEIGHT_DECAY_BIAS: 0.0
+  IMS_PER_BATCH: 64
+  STEPS: [40, 70]
+  GAMMA: 0.1
+  WARMUP_FACTOR: 0.01
+  WARMUP_ITERS: 10
+  WARMUP_METHOD: 'linear'
+  CHECKPOINT_PERIOD: 20
+  LOG_PERIOD: 50
+  EVAL_PERIOD: 20                   # only meaningful with --holdout; harmless otherwise
+
+TEST:
+  IMS_PER_BATCH: 128
+  RE_RANKING: 'no'
+  WEIGHT: ''
+  NECK_FEAT: 'after'                # matches the zero-shot extractor
+  FEAT_NORM: 'yes'
+
+OUTPUT_DIR: './logs/caliper_ground_bot'
