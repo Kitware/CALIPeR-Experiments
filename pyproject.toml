@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "caliper-reid-eval"
+version = "0.1.0"
+description = "Shared, method-agnostic ReID evaluation for the CALIPeR KITBRC1 benchmark (torch-free)."
+requires-python = ">=3.7"
+dependencies = ["numpy"]
+
+[project.scripts]
+caliper-eval = "caliper_eval.eval_from_features:main"
+
+[tool.setuptools]
+license-files = ["methods/README.md"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["caliper_eval*"]
+

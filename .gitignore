@@ -1,0 +1,17 @@
+# byte-compiled / cache
+__pycache__/
+*.pyc
+
+# SLURM job logs
+*.out
+
+# generated plots/reports (regeneratable from caliper_eval/*.py)
+papergr_curves/
+papergr_synth*/
+val_curves/
+
+
+
+# Local-only files
+.local/
+*.local.*
