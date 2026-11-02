@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+table3_runs/
+reid_runs/
+data/
+test_runs/
+# Local presets and generated reports.
+configs/*_local.ini
+configs/results/

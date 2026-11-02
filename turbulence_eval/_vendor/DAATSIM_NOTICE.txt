@@ -1,0 +1,13 @@
+DAATSim: Depth-Aware Atmospheric Turbulence Simulation for Fast Image Rendering
+Authors: Ripon Kumar Saha, Yufan Zhang, Jinwei Ye, Suren Jayasuriya.
+Copyright 2025 Arizona State University & George Mason University.
+License: Creative Commons Attribution-NonCommercial 4.0 International.
+https://creativecommons.org/licenses/by-nc/4.0/legalcode
+Source: https://github.com/Riponcs/DAATSim
+
+Adapted files: daatsim.py and daatsim_config.py. CALIPeR changes include explicit
+optical/turbulence parameters, device handling, uniform-depth simulation and
+integration with the Table 3 generation pipeline. No endorsement is implied.
+The imported upstream revision was not recorded. The license declaration was
+verified in the upstream README at dc0894fc06c2c75b72bae2f2111ca6ae89fcc453;
+this is a license inspection revision, not an asserted source revision.
