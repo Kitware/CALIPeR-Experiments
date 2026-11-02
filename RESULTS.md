@@ -17,6 +17,23 @@ evaluated zero-shot only.
 
 FT and FT+syn use one seed per arm; these runs do not establish a noise floor.
 
+### ⚠ Eval protocol note — Longitudinal column, verification TODO
+
+`eval_reid.py` had a bug (now fixed, see git history) that unconditionally discarded gallery items
+sharing `(pid, camid)` with the query — correct for Market1501, but on the Longitudinal
+(cross-collection) split a true match can legitimately share a camera id with its query, so this
+silently dropped genuine matches. Verified on BoT/Market1501: the old buggy code reproduced this
+repo's previously-logged number (mAP 1.0 / R1 3.3) exactly; the fix moves it to 1.2 / 4.7, toward
+the published 2.4 / 5.8. The remaining gap is assumed to be noise (low query count, low-single-digit
+mAP, so a handful of rank-1 hits swings it by a point or two) — **not yet independently confirmed**.
+
+**Follow-up to do before fully trusting this column:**
+- Re-run the other 3 rows that had the same discrepancy on this column (SINet/LS-VID,
+  PersonViT/MSMT17, SapiensID/WebBody-12M) with the fix and confirm the same pattern.
+- Check whether the other "other modalities" columns (especially Same-collect-CC, which like
+  Longitudinal spans separate collections/cameras) have the same camid-exclusion sensitivity, or
+  whether it's isolated to Longitudinal.
+
 ## Full zero-shot survey (all methods, all released checkpoints)
 
 This table includes every released checkpoint evaluated on CALIPeR. Values are mAP / Rank-1 (%).
