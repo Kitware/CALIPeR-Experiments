@@ -99,11 +99,12 @@ def distance(qF, gF, metric):
     return (q2 + g2.T - 2.0 * qF @ gF.T).astype(np.float32)
 
 
-def evaluate(qF, q_pids, q_camids, gF, g_pids, g_camids, metric):
+def evaluate(qF, q_pids, q_camids, gF, g_pids, g_camids, metric, cam_exclusion):
     dm = distance(qF, gF, metric)
-    cmc, mAP = eval_func(dm, q_pids, g_pids, q_camids, g_camids)
+    cmc, mAP, dropped = eval_func(dm, q_pids, g_pids, q_camids, g_camids, cam_exclusion=cam_exclusion)
     return dict(n_query=int(qF.shape[0]), n_gallery=int(gF.shape[0]), mAP=float(mAP),
                 rank1=float(cmc[0]), rank5=float(cmc[4]), rank10=float(cmc[9]),
+                dropped_queries=int(dropped),
                 cmc=[float(x) for x in cmc])   # full CMC curve (up to max_rank) for plotting
 
 
@@ -116,6 +117,9 @@ def main():
     ap.add_argument('--min-track-crops', type=int, default=0)
     ap.add_argument('--max-per-video', type=int, default=0,
                     help='Maximum number of evenly spaced frames per video before pooling. Zero uses all frames.')
+    ap.add_argument('--cam-exclusion', default='none', choices=['none', 'market'],
+                    help='Use none for CALIPeR. The Market1501 rule (market) excludes gallery '
+                         'entries that share both the query identity and its camera.')
     ap.add_argument('--out', default='')
     args = ap.parse_args()
 
@@ -148,21 +152,25 @@ def main():
             level, args.pool_op, args.metric, args.max_per_video, gF.shape[0], len(set(g_pids.tolist()))))
         for q, keep in zip(queries, qkeep):
             qF, q_pids, q_camids = pool(q, keep, level, args.pool_op)
-            res = evaluate(qF, q_pids, q_camids, gF, g_pids, g_camids, args.metric)
+            res = evaluate(qF, q_pids, q_camids, gF, g_pids, g_camids, args.metric, args.cam_exclusion)
             per_range[str(q['camera_token'])] = res
             print("  [{:>7}] units={:5d}  mAP={:.1%}  R1={:.1%}  R5={:.1%}  R10={:.1%}".format(
                 str(q['camera_token']), res['n_query'], res['mAP'], res['rank1'], res['rank5'], res['rank10']))
             qF_all.append(qF); qp_all.append(q_pids); qc_all.append(q_camids)
         qF = np.concatenate(qF_all); q_pids = np.concatenate(qp_all); q_camids = np.concatenate(qc_all)
-        per_range['combined'] = evaluate(qF, q_pids, q_camids, gF, g_pids, g_camids, args.metric)
+        per_range['combined'] = evaluate(qF, q_pids, q_camids, gF, g_pids, g_camids, args.metric, args.cam_exclusion)
         c = per_range['combined']
         print("  [{:>7}] units={:5d}  mAP={:.1%}  R1={:.1%}  R5={:.1%}  R10={:.1%}".format(
             'combined', c['n_query'], c['mAP'], c['rank1'], c['rank5'], c['rank10']))
         results[level] = per_range
 
     summary = dict(pool_op=args.pool_op, metric=args.metric, min_track_crops=args.min_track_crops,
-                   max_per_video=args.max_per_video, results=results, **prov)
-    out = args.out or osp.join(args.features_dir, 'eval_{}_{}.json'.format(args.pool_op, args.metric))
+                   max_per_video=args.max_per_video, cam_exclusion=args.cam_exclusion,
+                   results=results, **prov)
+    # keep the default (cam_exclusion='none') filename unchanged so existing tooling's glob still
+    # finds it; only the explicit 'market' parity-check run gets a distinguishing suffix.
+    suffix = '' if args.cam_exclusion == 'none' else '_' + args.cam_exclusion
+    out = args.out or osp.join(args.features_dir, 'eval_{}_{}{}.json'.format(args.pool_op, args.metric, suffix))
     with open(out, 'w') as f:
         json.dump(summary, f, indent=2)
     print("\nwrote", out)

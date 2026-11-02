@@ -6,8 +6,11 @@ matches."""
 import numpy as np
 
 
-def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50):
-    """Compute the CMC curve and mAP for queries with gallery matches."""
+def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50, cam_exclusion='none'):
+    """Compute the CMC curve and mAP for queries with gallery matches. Also return the number of
+    skipped queries."""
+    if cam_exclusion not in ('market', 'none'):
+        raise ValueError("cam_exclusion must be 'market' or 'none', got {!r}".format(cam_exclusion))
     num_q, num_g = distmat.shape
     if num_g < max_rank:
         max_rank = num_g
@@ -19,21 +22,26 @@ def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50):
     all_cmc = []
     all_AP = []
     num_valid_q = 0.  # number of valid query
+    num_dropped_q = 0  # queries with zero gallery matches after exclusion
     for q_idx in range(num_q):
         # get query pid and camid
         q_pid = q_pids[q_idx]
         q_camid = q_camids[q_idx]
 
-        # remove gallery samples that have the same pid and camid with query
         order = indices[q_idx]
-        remove = (g_pids[order] == q_pid) & (g_camids[order] == q_camid)
-        keep = np.invert(remove)
+        if cam_exclusion == 'market':
+            # remove gallery samples that have the same pid and camid with query
+            remove = (g_pids[order] == q_pid) & (g_camids[order] == q_camid)
+            keep = np.invert(remove)
+        else:
+            keep = np.ones(len(order), dtype=bool)
 
         # compute cmc curve
         # binary vector, positions with value 1 are correct matches
         orig_cmc = matches[q_idx][keep]
         if not np.any(orig_cmc):
             # this condition is true when query identity does not appear in gallery
+            num_dropped_q += 1
             continue
 
         cmc = orig_cmc.cumsum()
@@ -57,4 +65,4 @@ def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50):
     all_cmc = all_cmc.sum(0) / num_valid_q
     mAP = np.mean(all_AP)
 
-    return all_cmc, mAP
+    return all_cmc, mAP, num_dropped_q
