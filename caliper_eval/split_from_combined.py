@@ -5,8 +5,10 @@ import os
 import os.path as osp
 from collections import OrderedDict
 
-DEFAULT_CHIP_INDEX = './data/reid-chips/chip_index.jsonl'
-DEFAULT_CROP_ROOT = './data/reid-chips/v4'
+# Root of the released CALIPeR dataset tree (splits/, reid-chips/, ...). Override with CALIPER_DATA_ROOT.
+_DATA_ROOT = os.environ.get('CALIPER_DATA_ROOT', 'data')
+DEFAULT_CHIP_INDEX = osp.join(_DATA_ROOT, 'reid-chips', 'chip_index.jsonl')
+DEFAULT_CROP_ROOT = osp.join(_DATA_ROOT, 'reid-chips', 'v4')
 
 
 def load_chip_index(path=DEFAULT_CHIP_INDEX):

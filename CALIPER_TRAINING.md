@@ -6,14 +6,14 @@ Finetune a ReID method on CALIPeR ground field video, score on `paperGR`.
 
 Ground field only — no aerial, gait or enrollment.
 
-**Train** — `./data/splits/combined_brc1_brc2_train_corpus/`, the labelled crop list
+**Train** — `$CALIPER_DATA_ROOT/splits/combined_brc1_brc2_train_corpus/`, the labelled crop list
 (CSVs saying which crop belongs to whom; not images, not kwcoco):
 - `train_chips.csv` one row per crop · `train_tracklets.csv` same at tracklet granularity
 - `train_classes.json` `{canonical_id: label}` — identity comes from here, never directory names
   (44 people own two raw subject dirs, so `ImageFolder` gives 234 classes for 232 people)
 - `train_manifest.csv` — not the training list; read only to find tracklets sharing a source video
 
-Chips: `./data/reid-chips/` (`chip_path` is relative to this).
+Chips: `$CALIPER_DATA_ROOT/reid-chips/` (`chip_path` is relative to this).
 
 Filtering, in `caliper_eval/train_corpus.py`:
 
@@ -39,7 +39,7 @@ identities. Worth knowing if data volume ever becomes the binding constraint; no
 from the specified split.
 
 **Test** — `combined_brc1_brc2_test/test_ground-range_combined_paperGR.json`
-→ built to kwcoco at `./reid-bench/splits/paperGR/`:
+→ built to kwcoco at `$REID_BENCH_ROOT/splits/paperGR/`:
 gallery 926 clips / 65,884 crops, query_500m 890 / 45,150, query_1000m 712 / 37,292. 170 ids, 0 train.
 
 ⚠ The same filename exists in `combined_brc1_brc2/` (no `_test`): 365 gallery ids, **195 of them
@@ -47,7 +47,7 @@ training identities**. That is what `reid_bench` scores — fine zero-shot, inva
 
 ```bash
 python -m caliper_eval.split_from_combined \
-    --split-json ./data/splits/combined_brc1_brc2_test/test_ground-range_combined_paperGR.json \
+    --split-json $CALIPER_DATA_ROOT/splits/combined_brc1_brc2_test/test_ground-range_combined_paperGR.json \
     --out-dir <your>/splits/paperGR --gallery-token 380m --query-token-per-tok
 ```
 One invocation only — two runs renumber subjects per file and destroy every match.
@@ -162,7 +162,7 @@ set instead, which keeps the save path alive on full-230 runs.
 ### BoT
 
 ```bash
-PYTHONPATH=/absolute/path/to/CALIPeR-Experiments:. python tools/train_caliper.py \
+PYTHONPATH=/path/to/caliper_reid_eval:. python tools/train_caliper.py \
     --config_file configs/caliper_ground_softmax_triplet.yml \
     --init-weight ./weights/market_resnet50_model_120_rank1_945.pth
 ```

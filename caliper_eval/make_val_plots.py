@@ -25,8 +25,7 @@ READ THE 1000m CURVE, NOT THE POOLED ONE. Over ~30 held-out identities the 500m 
 every method (zero-shot BoT is R1 89.3 at 500m against 10.4 at 1000m), so the pooled `all` curve is
 dominated by a range that carries almost no signal about which epoch is best.
 
-Requires Matplotlib in the active Python environment. It reads JSONL and writes images, so
-no method repo needs to be importable:
+Needs matplotlib. It reads JSONL and writes images, so no method repo needs to be importable:
 
     python -m caliper_eval.make_val_plots [--train-root DIR] [--out-dir DIR]
 """

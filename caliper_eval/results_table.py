@@ -4,11 +4,13 @@ import argparse
 import collections
 import glob
 import json
+import os
 import os.path as osp
 
 from caliper_eval import paths
 
-TRAIN_TEST_IDS = './data/train_test_ids.json'
+# Root of the released CALIPeR dataset tree. Override with CALIPER_DATA_ROOT.
+TRAIN_TEST_IDS = osp.join(os.environ.get('CALIPER_DATA_ROOT', 'data'), 'CALIPER_PyBSM', 'train_test_ids.json')
 
 # Reporting order, matching paperGR/results_table.md. Grouped by method with the smaller pretraining
 # corpus first, so the msmt17>market1501 and lsvid>mars pairs read as adjacent comparisons. Anything

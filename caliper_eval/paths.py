@@ -3,7 +3,7 @@
 import os
 import os.path as osp
 
-DEFAULT_ROOT = './reid-bench'
+DEFAULT_ROOT = 'reid-bench'
 ROOT = os.environ.get('REID_BENCH_ROOT', DEFAULT_ROOT)
 
 

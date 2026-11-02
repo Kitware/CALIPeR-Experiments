@@ -35,6 +35,7 @@ pip install -e .          # or just: export PYTHONPATH=/path/to/caliper_reid_eva
 
 ## Data
 
-Reads `./data/{splits,reid-chips}/`. Override with `REID_BENCH_ROOT` (benchmark tree),
-`CALIPER_EVAL_HOME` (this package's location, for the import fallback in method repos), and
-`--chip-root` (training chip location, e.g. a `/dev/shm` stage).
+Reads `$CALIPER_DATA_ROOT/{splits,reid-chips}/` (default: `./data` relative to the current directory).
+Override the dataset tree with `CALIPER_DATA_ROOT`, the separate eval/training-output tree with
+`REID_BENCH_ROOT`, this package's own location (for the import fallback in method repos) with
+`CALIPER_EVAL_HOME`, and the training chip location (e.g. a `/dev/shm` stage) with `--chip-root`.

@@ -2,16 +2,19 @@
 """Read ground-field training crops and group them by subject and tracklet."""
 import csv
 import json
+import os
 import os.path as osp
 import random
 
-CORPUS = './data/splits/combined_brc1_brc2_train_corpus'
-CHIP_ROOT = './data/reid-chips'
+# Root of the released CALIPeR dataset tree (splits/, reid-chips/, ...). Override with CALIPER_DATA_ROOT.
+DATA_ROOT = os.environ.get('CALIPER_DATA_ROOT', 'data')
+CORPUS = osp.join(DATA_ROOT, 'splits', 'combined_brc1_brc2_train_corpus')
+CHIP_ROOT = osp.join(DATA_ROOT, 'reid-chips')
 MANIFEST = 'train_manifest.csv'
 
 # Synthetic crops share the source tracklet and frame identifiers of the real 400m crops.
-SIM_CORPUS = './data/splits/combined_brc1_brc2_sim_train_corpus'
-SIM_CHIP_ROOT = './data/reid-chips-sim'
+SIM_CORPUS = osp.join(DATA_ROOT, 'splits', 'combined_brc1_brc2_sim_train_corpus')
+SIM_CHIP_ROOT = osp.join(DATA_ROOT, 'reid-chips-sim')
 SIM_MANIFEST = 'sim_train_manifest.csv'
 SIM_SEVERITIES = ('cn2_1e-13', 'cn2_4e-13', 'cn2_1e-12')   # weak / medium / strong
 SIM_TOK = '1000m'      # what the synthetic chips are LABELLED as simulating

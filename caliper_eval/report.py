@@ -29,10 +29,10 @@ import sys
 import numpy as np
 
 try:
-    from caliper_eval import features_io
+    from caliper_eval import features_io, paths
 except ImportError:  # tolerate being run from the repo without install
     sys.path.insert(0, osp.dirname(osp.dirname(osp.abspath(__file__))))
-    from caliper_eval import features_io
+    from caliper_eval import features_io, paths
 
 _SHA_CACHE = {}
 
@@ -303,7 +303,7 @@ def main():
     sub = ap.add_subparsers(dest='cmd', required=True)
 
     s = sub.add_parser('summary', help='status matrix of every method across every split')
-    s.add_argument('--bench-root', default='./reid-bench')
+    s.add_argument('--bench-root', default=paths.ROOT, help='default: $REID_BENCH_ROOT or ./reid-bench')
     s.set_defaults(func=cmd_summary)
 
     r = sub.add_parser('report', help='emit results table + provenance manifest')

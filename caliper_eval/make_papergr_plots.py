@@ -38,8 +38,7 @@ transfer without licensing a re-pick.
 MODELS. Overlaying them implies a checkpoint-for-checkpoint correspondence that does not exist; it is
 a shape comparison only (plan Step 6d).
 
-Requires Matplotlib in the active Python environment. It reads JSON and writes images, so
-no method repo needs to be importable:
+Needs matplotlib. It reads JSON and writes images, so no method repo needs to be importable:
 
     python -m caliper_eval.make_papergr_plots [--out-dir DIR] [--overlay-val]
 """
