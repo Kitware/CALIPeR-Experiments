@@ -1,3 +1,10 @@
+> ### Running CALIPeR
+>
+> For CALIPeR data setup and evaluation, follow the [benchmark README](../../README.md#reproducing-the-evaluation).
+> The benchmark entry points are `extract_features.sh` / `extract_caliper_features.py` in this directory.
+> For CALIPeR fine-tuning, follow [TRAINING.md](../../TRAINING.md).
+> The original method documentation follows.
+
 ### A codebase for video-based person re-identification
 
 Salient-to-Broad Transition for Video Person Re-identiﬁcation (CVPR 2022)

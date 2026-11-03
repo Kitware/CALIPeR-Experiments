@@ -1,4 +1,11 @@
-﻿## CLIP-ReID: Exploiting Vision-Language Model for Image Re-Identification without Concrete Text Labels [[pdf]](https://arxiv.org/pdf/2211.13977.pdf)
+﻿> ### Running CALIPeR
+>
+> For CALIPeR data setup and evaluation, follow the [benchmark README](../../README.md#reproducing-the-evaluation).
+> The benchmark entry points are `extract_features.sh` / `extract_caliper_features.py` in this directory.
+> For CALIPeR fine-tuning, follow [TRAINING.md](../../TRAINING.md).
+> The original method documentation follows.
+
+## CLIP-ReID: Exploiting Vision-Language Model for Image Re-Identification without Concrete Text Labels [[pdf]](https://arxiv.org/pdf/2211.13977.pdf)
  [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/clip-reid-exploiting-vision-language-model/person-re-identification-on-msmt17)](https://paperswithcode.com/sota/person-re-identification-on-msmt17?p=clip-reid-exploiting-vision-language-model)
 
 ### Pipeline

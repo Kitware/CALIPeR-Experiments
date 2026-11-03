@@ -6,7 +6,8 @@ The commands below give both training recipes and the checkpoint epoch to score.
 
 ## Data
 
-Paths below are relative to `$CALIPER_DATA_ROOT` (see the README).
+Paths below are relative to `$CALIPER_DATA_ROOT`. First export the absolute data and output roots
+as shown in the [README](README.md#data); keep them exported when changing into method directories.
 
 **Training corpus**: `splits/combined_brc1_brc2_train_corpus/`. The manifest lists the labelled crops used for training.
 
@@ -31,7 +32,14 @@ Training uses tracklets from single-subject source videos. To check this filter,
 **Synthetic-turbulence crops** (FT+syn only): a 1:1 re-render of the real 400m ground crops through a
 pyBSM atmospheric-turbulence simulation at three strengths (`cn2_1e-13`, `cn2_4e-13`, `cn2_1e-12`),
 177 subjects, 502 tracklets and 34,251 crops per strength. Each synthetic crop's `src_chip_path` equals
-a real crop's `chip_path`, so it replaces that crop exactly. Pass the directory with `--sim-chip-root`.
+a real crop's `chip_path`, so it replaces that crop exactly. The required manifest is
+`splits/combined_brc1_brc2_sim_train_corpus/sim_train_manifest.csv`; the default synthetic crop root is
+`reid-chips-sim/`. Pass `--sim-chip-root` to use a copy of those crops elsewhere. The source repository
+does not generate or bundle this manifest or the synthetic crops.
+
+**Range labels**: training manifests normalize the physical `380m` station to the `400m` range label.
+References to 400m training or synthetic-source imagery below use that normalized label. The
+`paperGR` test gallery uses physical 380m imagery.
 
 **Test split**: `paperGR`, built from
 `splits/combined_brc1_brc2_test/test_ground-range_combined_paperGR.json` (170 identities, none of them
@@ -77,49 +85,76 @@ are not redistributed here.
 
 **CLIP-ReID has two stages.** Stage 1 learns one text prompt per identity with the image encoder
 frozen, over every training crop (no frame cap). Stage 2 trains the image encoder against those
-prompts. Stage 2 is the only stage that uses the sampler and writes checkpoints.
+prompts. Stage 2 uses the shared identity sampler. Both stages write checkpoints at their configured
+intervals; stage-1 checkpoints contain the learned prompts and can be reused with `--stage1-init`.
 
 ## Running
 
-Every entry point needs `caliper_eval` importable: run `pip install -e .` at the repository root, or
-put the root on `PYTHONPATH`. Training expects exactly one visible GPU: set `CUDA_VISIBLE_DEVICES`
-to a single device.
+Every entry point needs `caliper_eval` importable: run `python3 -m pip install -e '.[train]'` at the
+repository root, or put the root on `PYTHONPATH`. Training expects exactly one visible GPU: set
+`CUDA_VISIBLE_DEVICES` to a single device.
 
-**FT (real data only):**
+**FT (real data only):** run the matching command from its indicated method directory. Replace the
+quoted placeholder paths with your crop directory, initial checkpoint, and output directory.
 
 ```bash
 # BoT  (methods/reid-strong-baseline)
-python tools/train_caliper.py --config_file configs/caliper_ground_softmax_triplet.yml \
-    --init-weight weights/market_resnet50_model_120_rank1_945.pth --chip-root <chips> \
-    SOLVER.CHECKPOINT_PERIOD 5 SOLVER.EVAL_PERIOD 999 OUTPUT_DIR <out>
+python3 tools/train_caliper.py --config_file configs/caliper_ground_softmax_triplet.yml \
+    --init-weight weights/market_resnet50_model_120_rank1_945.pth --chip-root "/absolute/path/to/reid-chips" \
+    SOLVER.CHECKPOINT_PERIOD 5 SOLVER.EVAL_PERIOD 999 OUTPUT_DIR "/absolute/path/to/output"
 
 # PersonViT  (methods/PersonViT/transreid_pytorch)
-python train_caliper.py --config_file configs/caliper_ground_vit.yml \
-    --init-weight <msmt17 ViT-B>/transformer_120.pth --chip-root <chips> \
-    SOLVER.CHECKPOINT_PERIOD 5 SOLVER.EVAL_PERIOD 999 OUTPUT_DIR <out>
+python3 train_caliper.py --config_file configs/caliper_ground_vit.yml \
+    --init-weight "/absolute/path/to/msmt17-vit-b/transformer_120.pth" --chip-root "/absolute/path/to/reid-chips" \
+    SOLVER.CHECKPOINT_PERIOD 5 SOLVER.EVAL_PERIOD 999 OUTPUT_DIR "/absolute/path/to/output"
 
 # SINet  (methods/SINet)
-python train_caliper.py --arch sinet --init-weight weights/sinet_lsvid.pth.tar --chip-root <chips> \
+python3 train_caliper.py --arch sinet --init-weight weights/sinet_lsvid.pth.tar --chip-root "/absolute/path/to/reid-chips" \
     --max_epoch 600 --stepsize 160 320 480 --train_batch 32 --workers 3 \
-    --eval_step 25 --ckpt_step 25 --save_dir <out>
+    --eval_step 25 --ckpt_step 25 --save_dir "/absolute/path/to/output"
 
 # CLIP-ReID  (methods/CLIP-ReID)
-python train_caliper.py --config_file configs/caliper_ground_clipreid.yml \
-    --init-weight weights/MSMT17_clipreid_ViT-B-16_60.pth --chip-root <chips> \
-    SOLVER.STAGE2.EVAL_PERIOD 999 OUTPUT_DIR <out>
+python3 train_caliper.py --config_file configs/caliper_ground_clipreid.yml \
+    --init-weight weights/MSMT17_clipreid_ViT-B-16_60.pth --chip-root "/absolute/path/to/reid-chips" \
+    SOLVER.STAGE2.EVAL_PERIOD 999 OUTPUT_DIR "/absolute/path/to/output"
 ```
 
 `EVAL_PERIOD 999` disables in-training validation, since `--holdout 0` leaves no validation set.
 
-**FT+syn:** add these flags to the same command:
+**FT+syn:** use the matching complete command below from the same method directory. For BoT,
+PersonViT, and CLIP-ReID, put every `--...` option **before** the first positional configuration
+override (`SOLVER.*`, `OUTPUT_DIR`, etc.). Their parsers treat all later tokens as configuration
+overrides, so appending synthetic flags or PersonViT's `--stop-after` after those overrides fails.
 
 ```bash
---sim-mode mix --sim-p 0.5 --sim-chip-root <synthetic chips>
+# BoT  (methods/reid-strong-baseline)
+python3 tools/train_caliper.py --config_file configs/caliper_ground_softmax_triplet.yml \
+    --init-weight weights/market_resnet50_model_120_rank1_945.pth --chip-root "/absolute/path/to/reid-chips" \
+    --sim-mode mix --sim-p 0.5 --sim-chip-root "/absolute/path/to/reid-chips-sim" \
+    SOLVER.MAX_EPOCHS 30 SOLVER.CHECKPOINT_PERIOD 5 SOLVER.EVAL_PERIOD 999 OUTPUT_DIR "/absolute/path/to/output"
+
+# PersonViT  (methods/PersonViT/transreid_pytorch)
+python3 train_caliper.py --config_file configs/caliper_ground_vit.yml \
+    --init-weight "/absolute/path/to/msmt17-vit-b/transformer_120.pth" --chip-root "/absolute/path/to/reid-chips" \
+    --sim-mode mix --sim-p 0.5 --sim-chip-root "/absolute/path/to/reid-chips-sim" --stop-after 45 \
+    SOLVER.CHECKPOINT_PERIOD 5 SOLVER.EVAL_PERIOD 999 OUTPUT_DIR "/absolute/path/to/output"
+
+# SINet  (methods/SINet)
+python3 train_caliper.py --arch sinet --init-weight weights/sinet_lsvid.pth.tar --chip-root "/absolute/path/to/reid-chips" \
+    --sim-mode mix --sim-p 0.5 --sim-chip-root "/absolute/path/to/reid-chips-sim" \
+    --max_epoch 600 --stepsize 160 320 480 --train_batch 32 --workers 3 \
+    --eval_step 25 --ckpt_step 25 --save_dir "/absolute/path/to/output"
+
+# CLIP-ReID  (methods/CLIP-ReID)
+python3 train_caliper.py --config_file configs/caliper_ground_clipreid.yml \
+    --init-weight weights/MSMT17_clipreid_ViT-B-16_60.pth --chip-root "/absolute/path/to/reid-chips" \
+    --sim-mode mix --sim-p 0.5 --sim-chip-root "/absolute/path/to/reid-chips-sim" --sim-stage1 real \
+    SOLVER.STAGE2.MAX_EPOCHS 5 SOLVER.STAGE2.EVAL_PERIOD 999 OUTPUT_DIR "/absolute/path/to/output"
 ```
 
 The FT+syn runs ended at epoch 30 for BoT, epoch 45 for PersonViT, stage-2 epoch 5 for
 CLIP-ReID, and epoch 600 for SINet. For PersonViT, use `--stop-after 45` to keep the
-120-epoch cosine learning-rate schedule through readout. For CLIP-ReID, `--sim-stage1 real`
+learning-rate schedule from the 120-epoch run. For CLIP-ReID, `--sim-stage1 real`
 fits prompts on real crops. Synthetic crops enter training in stage 2.
 
 Each entry point checks the corpus composition (identities, epoch size, synthetic share) before
@@ -140,13 +175,14 @@ one member per group, **redrawn every epoch**, so every subject keeps seeing bot
 | identities with 1000m-labelled data | 104 | 191 |
 
 `mix` swaps data rather than adding it: about half of the real 400m data per epoch is replaced
-(18.9% → ~9.0% of images). The `paperGR` gallery is real 400m data, so a negative FT+syn result could
-mean either that synthetic data doesn't help or that losing real gallery-range training data hurts.
+(18.9% → ~9.0% of images). The `paperGR` gallery is real 380m imagery (the normalized 400m range), so a
+negative FT+syn result could mean either that synthetic data doesn't help or that losing real
+gallery-range training data hurts.
 
 Other `--sim-mode` values (`add`, `dup`, `swapall`) and `--sim-severity` are available, but they were
 not used for the published results.
 
-## Readout epoch
+## Which checkpoint to evaluate
 
 Each trainer writes `run.json` beside its checkpoints with the settings, code revision, and
 training and validation identities. BoT also writes `epoch_map.jsonl`. Match the chosen epoch
@@ -158,11 +194,49 @@ on 1000m queries. The remaining 200 identities serve as the training set for thi
 
 | | BoT | PersonViT | SINet | CLIP-ReID |
 |---|--:|--:|--:|--:|
-| readout epoch | 10 | 5 | 600 | 5 (stage 2) |
+| epoch to score | 10 | 5 | 600 | 5 (stage 2) |
 
-FT and FT+syn are both read out at that epoch. To score a checkpoint, extract features with the
-method's `extract_caliper_features.py` (or BoT's `tools/extract_features.py`) on `paperGR`, then run
-`python -m caliper_eval.eval_from_features` as in the README.
+Use the checkpoint from the epoch shown above for both FT and FT+syn.
+
+### Score a trained BoT checkpoint
+
+Build the `paperGR` split using the [evaluation guide](README.md#reproducing-the-evaluation).
+In the BoT environment, start in the repository root. Set `RUN` to the `OUTPUT_DIR`
+from your real-data training command. BoT names each checkpoint by iteration, so
+look up the final iteration of epoch 10 in that run’s `epoch_map.jsonl`.
+
+```bash
+RUN="/absolute/path/to/bot-ft-training-output"
+STEP=$(python3 - "$RUN/epoch_map.jsonl" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as records:
+    for line in records:
+        record = json.loads(line)
+        if record["epoch"] == 10:
+            print(record["global_step"])
+            break
+    else:
+        sys.exit("This run has no entry for epoch 10.")
+PY
+)
+WEIGHT="$RUN/resnet50_model_$STEP.pt"
+FEATURES="$REID_BENCH_ROOT/fine-tuned/bot/ft/paperGR"
+
+(
+  cd methods/reid-strong-baseline
+  python3 tools/extract_features.py --config_file configs/caliper_ground_softmax_triplet.yml \
+      --split paperGR --source market1501 --out-dir "$FEATURES" \
+      MODEL.PRETRAIN_CHOICE self TEST.NECK_FEAT after TEST.WEIGHT "$WEIGHT"
+)
+python3 -m caliper_eval.eval_from_features --features-dir "$FEATURES" --pooling video
+```
+
+Read the `500m` and `1000m` video scores in `$FEATURES/eval_mean_cosine.json`.
+For FT+syn, use its training output for `RUN` and set `FEATURES` to
+`$REID_BENCH_ROOT/fine-tuned/bot/ft-syn/paperGR`. This keeps both trained models’
+features separate from the pretrained BoT results in `$REID_BENCH_ROOT/eval/`.
 
 ## Known limitations
 

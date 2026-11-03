@@ -1,3 +1,10 @@
+> ### Running CALIPeR
+>
+> For CALIPeR data setup and evaluation, follow the [benchmark README](../../README.md#reproducing-the-evaluation).
+> The benchmark entry points are `tasks/sapiensID/extract_features.sh` / `tasks/sapiensID/extract_caliper_features.py`.
+> This method is evaluated zero-shot in CALIPeR; no CALIPeR training adapter is provided.
+> The original method documentation follows.
+
 # SapiensID
 
 SapiensID is an official repository for SapiensID: Foundation for Human Recognition CVPR 2025 (https://arxiv.org/pdf/2504.04708).

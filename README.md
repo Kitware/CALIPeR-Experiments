@@ -9,7 +9,8 @@ Imagery for Person Re-identification."**
   under `methods/` imports this package, so the parts that must be identical across methods (the
   evaluation metric, the feature-cache format, the training corpus and sampler) are written once.
 - **`methods/`**: one subdirectory per method. Each is a fork of its upstream repository with CALIPeR
-  integration added on top, keeping its own README and LICENSE. [`methods/UPSTREAM.md`](methods/UPSTREAM.md)
+  integration added on top, keeping its upstream README and included license notices.
+  [`methods/UPSTREAM.md`](methods/UPSTREAM.md)
   lists the upstream commit each fork is based on and the files we changed:
   `reid-strong-baseline` (BoT), `SINet`, `CLIP-ReID`, `PersonViT` (fine-tuned and zero-shot), and
   `X-TFCLIP`, `GEFF` (CAL), `sapiensid` (zero-shot only).
@@ -17,16 +18,19 @@ Imagery for Person Re-identification."**
 ## Results
 
 See the [published results](RESULTS.md) for zero-shot and fine-tuned retrieval scores. The
-[training guide](TRAINING.md) gives the settings and readout epoch for each fine-tuned model.
+[training guide](TRAINING.md) gives the training settings and checkpoint epoch for each fine-tuned model.
 
 ## Install
 
 ```bash
-pip install -e .            # evaluation only (numpy)
-pip install -e .[train]     # also the training modules (torch)
+python3 -m pip install -e .           # evaluation only (numpy)
+python3 -m pip install -e '.[train]'  # also the training modules (torch)
 ```
 
-Each method also needs its own upstream dependencies; see the README in its `methods/` subdirectory.
+Run these commands from the repository root in the Python environment used for your chosen method.
+Each method also needs its own upstream dependencies; see its README for dependency and checkpoint
+information. The upstream dataset and training examples describe those original projects; use the
+CALIPeR commands below and in [TRAINING.md](TRAINING.md) for this benchmark.
 
 ## Data
 
@@ -36,8 +40,27 @@ Each method also needs its own upstream dependencies; see the README in its `met
 | `REID_BENCH_ROOT` | `./reid-bench` | where this code writes crop-level splits, features and eval results |
 | `CALIPER_EVAL_HOME` | the repository root | where method scripts find `caliper_eval` if it isn't installed |
 
-Defaults are relative to the current directory unless stated otherwise. `REID_BENCH_ROOT` has this
-layout:
+Defaults are relative to the current directory unless stated otherwise. Before running any commands,
+replace the example paths below and export **absolute paths** in the same shell. The method wrappers
+change into their own directories, so relative roots will point somewhere different during extraction.
+
+```bash
+export CALIPER_DATA_ROOT="/absolute/path/to/caliper-data"
+export REID_BENCH_ROOT="/absolute/path/to/caliper-benchmark-output"
+```
+
+Obtain the dataset and experiment manifests separately. Point `CALIPER_DATA_ROOT` at the
+files listed below. Split conversion uses the existing person crops and chip index.
+
+| input under `CALIPER_DATA_ROOT` | needed for |
+|---|---|
+| `splits/combined_brc1_brc2_test/*.json` | video-level evaluation splits listed below |
+| `reid-chips/chip_index.jsonl` and `reid-chips/v4/` | mapping split videos to extracted crops |
+| `train_test_ids.json` | results reporting; a JSON object with a nonempty `train` array of canonical subject strings |
+| `splits/combined_brc1_brc2_train_corpus/train_manifest.csv` | fine-tuning; see [TRAINING.md](TRAINING.md) for the full corpus layout |
+| `splits/combined_brc1_brc2_sim_train_corpus/sim_train_manifest.csv` and `reid-chips-sim/` | synthetic-data fine-tuning only |
+
+`REID_BENCH_ROOT` is the output tree:
 
 ```
 splits/<split>/{gallery,query_*}.kwcoco.json        crop-level splits
@@ -51,20 +74,20 @@ building a split's gallery and queries in separate invocations renumbers subject
 matching.
 
 ```bash
-S=$CALIPER_DATA_ROOT/splits/combined_brc1_brc2_test
-O=$REID_BENCH_ROOT/splits
-python -m caliper_eval.split_from_combined --split-json $S/test_ground-range_combined_paperGR.json \
-    --out-dir $O/paperGR --gallery-token 380m --query-token-per-tok
-python -m caliper_eval.split_from_combined --split-json $S/test_cross-collection_combined.json \
-    --out-dir $O/cross-collection_test --gallery-token brc1 --query-token brc2 --mated-only
-python -m caliper_eval.split_from_combined --split-json $S/test_ground-aerial_combined.json \
-    --out-dir $O/ground-aerial_test --gallery-token ground --query-token aerial
-python -m caliper_eval.split_from_combined --split-json $S/test_enroll-field_combined.json \
-    --out-dir $O/enroll-field_test --gallery-token enroll --query-token field
-python -m caliper_eval.split_from_combined --split-json $S/test_clothing_combined_brc1.json \
-    --out-dir $O/clothing-brc1_test --gallery-token set1 --query-token set2
-python -m caliper_eval.split_from_combined --split-json $S/test_clothing_combined_brc2.json \
-    --out-dir $O/clothing-brc2_test --gallery-token set1 --query-token set2
+S="$CALIPER_DATA_ROOT/splits/combined_brc1_brc2_test"
+O="$REID_BENCH_ROOT/splits"
+python3 -m caliper_eval.split_from_combined --split-json "$S/test_ground-range_combined_paperGR.json" \
+    --out-dir "$O/paperGR" --gallery-token 380m --query-token-per-tok
+python3 -m caliper_eval.split_from_combined --split-json "$S/test_cross-collection_combined.json" \
+    --out-dir "$O/cross-collection_test" --gallery-token brc1 --query-token brc2 --mated-only
+python3 -m caliper_eval.split_from_combined --split-json "$S/test_ground-aerial_combined.json" \
+    --out-dir "$O/ground-aerial_test" --gallery-token ground --query-token aerial
+python3 -m caliper_eval.split_from_combined --split-json "$S/test_enroll-field_combined.json" \
+    --out-dir "$O/enroll-field_test" --gallery-token enroll --query-token field
+python3 -m caliper_eval.split_from_combined --split-json "$S/test_clothing_combined_brc1.json" \
+    --out-dir "$O/clothing-brc1_test" --gallery-token set1 --query-token set2
+python3 -m caliper_eval.split_from_combined --split-json "$S/test_clothing_combined_brc2.json" \
+    --out-dir "$O/clothing-brc2_test" --gallery-token set1 --query-token set2
 ```
 
 All of these use the `combined_brc1_brc2_test` partition: 170 test identities, none of them used for
@@ -79,30 +102,55 @@ training.
 | `cross-collection_test` | Longitudinal | BRC1 field → BRC2 field |
 
 **Longitudinal is open-set.** Only 39 of its 96 query identities appear in the gallery. mAP and Rank-k
-are defined only for queries that have a match, so they are averaged over those 39 identities (1,198
-query videos). The 57 unmatched query identities are excluded; `--mated-only` drops them when the
+are defined only for queries that have a match. With video pooling, they are averaged over the 1,198
+valid query videos belonging to those 39 identities; this is not an average of per-identity scores.
+The 57 unmatched query identities are excluded; `--mated-only` drops them when the
 split is built. All 113 gallery identities, including those that never appear as queries, are kept as
 distractors.
 
-**2. Extract features** with each method's script, from inside its directory:
+**2. Extract features and score** with each method's wrapper, from the working directory listed below.
+Download the upstream checkpoints and place them at the paths configured near the top of that
+method's `extract_features.sh`. The experiment checkpoints expected by these wrappers are not bundled.
+Each wrapper also runs the shared evaluation after extraction.
 
 ```bash
 ./extract_features.sh                                  # paperGR (default)
 SPLIT=cross-collection_test ./extract_features.sh      # any other split above
 ```
 
-These wrap `extract_caliper_features.py` (BoT: `tools/extract_features.py`), which takes
-`--split` / `--dataset` / `--weight` / `--source` directly.
+| method | working directory | Python extractor | checkpoint argument for direct Python invocation |
+|---|---|---|---|
+| BoT | `methods/reid-strong-baseline` | `tools/extract_features.py` | `TEST.WEIGHT` config override |
+| SINet | `methods/SINet` | `extract_caliper_features.py` | `--weight` |
+| CLIP-ReID | `methods/CLIP-ReID` | `extract_caliper_features.py` | `--weight` |
+| PersonViT | `methods/PersonViT/transreid_pytorch` | `extract_caliper_features.py` | `--weight` |
+| CAL | `methods/GEFF` | `extract_caliper_features.py` | `--weight` |
+| X-TFCLIP | `methods/X-TFCLIP` | `extract_caliper_features.py` | `--weight` |
+| SapiensID | `methods/sapiensid/tasks/sapiensID` | `extract_caliper_features.py` | `--ckpt-dir` (contains `model.yaml` and `model.pth`) |
 
-**3. Score** each feature set:
+All extractors accept `--split`, `--dataset`, and `--source`; use each extractor's `--help` for
+method-specific options. These Python arguments are not forwarded by the shell wrappers.
+
+**3. Score or rescore an existing feature set** directly, replacing the placeholders:
 
 ```bash
-python -m caliper_eval.eval_from_features \
-    --features-dir $REID_BENCH_ROOT/eval/combined_brc1_brc2/<split>/<method>/<source> \
+python3 -m caliper_eval.eval_from_features \
+    --features-dir "$REID_BENCH_ROOT/eval/combined_brc1_brc2/<split>/<method>/<source>" \
     --pooling video --metric cosine --max-per-video 0
 ```
 
-`python -m caliper_eval.results_table` then collects every eval result into one Markdown table.
+The installed `caliper-eval` command exposes the same evaluator. To collect the published splits
+into a Markdown table, run:
+
+```bash
+python3 -m caliper_eval.results_table
+```
+
+The report is written to `$REID_BENCH_ROOT/eval/RESULTS.md`. It reads
+`$CALIPER_DATA_ROOT/train_test_ids.json` to check for training identities in evaluation splits. If
+that JSON is elsewhere, pass `--train-test-ids "/absolute/path/to/train_test_ids.json"`. The `train`
+list must use the exact canonical subject names from the crop-level splits, with no leading or
+trailing whitespace. Additional keys in the partition file are ignored.
 
 ## `caliper_eval` modules
 
@@ -130,6 +178,8 @@ python -m caliper_eval.eval_from_features \
 
 ## License
 
-Apache License 2.0 (see [LICENSE](LICENSE)) for the code in this repository (`caliper_eval/` and the
-docs). Each fork under `methods/` keeps its own upstream license. Check that subdirectory before
-reusing its code on its own.
+Repository-authored shared code (`caliper_eval/`) and documentation are distributed under Apache
+License 2.0 (see [LICENSE](LICENSE)). Third-party code under `methods/` retains its included license
+notices; see [methods/UPSTREAM.md](methods/UPSTREAM.md) for source repositories. The GEFF and X-TFCLIP
+top-level directories currently contain no license file. Consult the applicable upstream terms
+before reusing third-party code.

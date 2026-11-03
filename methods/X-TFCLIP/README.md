@@ -1,3 +1,10 @@
+> ### Running CALIPeR
+>
+> For CALIPeR data setup and evaluation, follow the [benchmark README](../../README.md#reproducing-the-evaluation).
+> The benchmark entry points are `extract_features.sh` / `extract_caliper_features.py` in this directory.
+> This method is evaluated zero-shot in CALIPeR; no CALIPeR training adapter is provided.
+> The original method documentation follows.
+
 #  X-TFCLIP: An Extended TF-CLIP Method Adapted to Aerial-Ground Person ReIdentification
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)
@@ -59,7 +66,7 @@ Note: For case 2, you need to modify the dataset path in datasets/set/agreidvid.
 ---
 ## Paper
 
-X-TFCLIP achieved the **1st place** in the [AG-VPReID 2025]((https://agvpreid25.github.io/)): The 2nd Aerial-Ground Person ReID Challenge.
+X-TFCLIP achieved the **1st place** in the [AG-VPReID 2025](https://agvpreid25.github.io/): The 2nd Aerial-Ground Person ReID Challenge.
 
 Please consider citing the following article if you found this work helpful. 
 

@@ -1,3 +1,10 @@
+> ### Running CALIPeR
+>
+> For CALIPeR data setup and evaluation, follow the [benchmark README](../../README.md#reproducing-the-evaluation).
+> The benchmark entry points are `transreid_pytorch/extract_features.sh` / `transreid_pytorch/extract_caliper_features.py`.
+> For CALIPeR fine-tuning, follow [TRAINING.md](../../TRAINING.md).
+> The original method documentation follows.
+
 # PersonViT
 PersonViT: Large-scale Self-supervised Vision Transformer for Person Re-Identification
 

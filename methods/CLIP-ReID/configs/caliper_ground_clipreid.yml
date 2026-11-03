@@ -12,15 +12,14 @@
 #   STAGE1 trains ONLY the text prompt tokens, with the image encoder frozen and image features
 #          cached once before the epoch loop (processor_clipreid_stage1.py:47-52). Cheap, and it
 #          cannot overfit the encoder because it never touches it.
-#   STAGE2 trains the image encoder, using those prompts as a fixed target via the i2t loss. This is
-#          the stage that overfits, and the only stage that writes checkpoints
-#          (processor_clipreid_stage2.py:133).
-# One run therefore yields the whole STAGE2 epoch curve for free but pins STAGE1 at one value.
+#   STAGE2 trains the image encoder, using those prompts as a fixed target via the i2t loss and
+#          the shared identity sampler. Both stages write checkpoints at their configured intervals.
+# One STAGE1 fit therefore supplies the prompts for the STAGE2 checkpoint curve.
 # STAGE1 MAX_EPOCHS is reduced from the published 120 to 15; see the note at that key.
 #
 # Infrastructural differences from the stock recipe:
 #   NUM_WORKERS 3 (raise if you have more CPU cores).
-#   STAGE2 CHECKPOINT_PERIOD/EVAL_PERIOD 60 -> 5, so every epoch of the curve is retained and
+#   STAGE2 CHECKPOINT_PERIOD/EVAL_PERIOD 60 -> 5, so every fifth stage-2 epoch is retained and
 #   scoreable later without retraining. The stock value writes exactly one checkpoint, at the end.
 
 MODEL:

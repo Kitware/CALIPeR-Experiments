@@ -10,7 +10,7 @@ import os.path as osp
 from caliper_eval import paths
 
 # Root of the released CALIPeR dataset tree. Override with CALIPER_DATA_ROOT.
-TRAIN_TEST_IDS = osp.join(os.environ.get('CALIPER_DATA_ROOT', 'data'), 'CALIPER_PyBSM', 'train_test_ids.json')
+TRAIN_TEST_IDS = osp.join(os.environ.get('CALIPER_DATA_ROOT', 'data'), 'train_test_ids.json')
 
 # Group the results by method and pretraining source.
 COMBO_ORDER = ['bot/market1501', 'sinet/mars', 'sinet/lsvid',
@@ -26,7 +26,7 @@ def combo_key(c):
     near = [i for i, k in enumerate(COMBO_ORDER) if k.split('/')[0] == base]
     return (0, near[-1] + 0.5, c) if near else (1, 0, c)
 
-# split dir -> (display name, query -> gallery, provenance)
+# split dir -> (display name, gallery -> query, provenance)
 # Scoped to exactly what feeds the published results (RESULTS.md): the zero-shot survey and
 # fine-tuning headline table (paperGR), the four "other modalities" columns (ground-aerial_test,
 # enroll-field_test, the two clothing splits, cross-collection_test), and the simulated-vs-real
@@ -44,7 +44,7 @@ KNOWN = collections.OrderedDict([
      'ground cams → aerial cams, test ids only',
      'combined_brc1_brc2_test/test_ground-aerial_combined.json')),
     ('combined_brc1_brc2/enroll-field_test', ('enroll-field (Enroll-vs-Field)',
-     'field video → enrollment stills + gait, test ids only',
+     'enrollment stills + gait → field video, test ids only',
      'combined_brc1_brc2_test/test_enroll-field_combined.json')),
     ('combined_brc1_brc2/clothing-brc1_test', ('clothing BRC1 (Same-collect-CC)',
      'BRC1 set1 → BRC1 set2, test ids only',
@@ -89,19 +89,39 @@ def query_tokens(split_dir):
     return sorted(toks, key=range_key)
 
 
+def load_train_ids(filename):
+    """Read the required partition without treating invalid input as an empty training set."""
+    with open(filename, encoding='utf-8') as f:
+        partition = json.load(f)
+    train = partition.get('train') if isinstance(partition, dict) else None
+    if (not isinstance(train, list) or not train or
+            any(not isinstance(subject, str) or not subject.strip() for subject in train)):
+        raise ValueError("expected a JSON object with a nonempty 'train' array of nonempty subject-name strings")
+    if any(subject != subject.strip() for subject in train):
+        raise ValueError("training subject names must not contain leading or trailing whitespace; "
+                         "use the exact canonical names from the evaluation splits")
+    return set(train)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--out', default='', help='default: <REID_BENCH_ROOT>/eval/RESULTS.md')
+    ap.add_argument('--train-test-ids', default=TRAIN_TEST_IDS, metavar='PATH',
+                    help='identity partition JSON; default: <CALIPER_DATA_ROOT>/train_test_ids.json '
+                         '(CALIPER_DATA_ROOT defaults to ./data)')
     args = ap.parse_args()
+    try:
+        train_ids = load_train_ids(args.train_test_ids)
+    except (OSError, ValueError) as exc:
+        ap.error('--train-test-ids {!r}: {}'.format(args.train_test_ids, exc))
     E = osp.join(paths.ROOT, 'eval')
     out = args.out or osp.join(E, 'RESULTS.md')
-    train_ids = set(json.load(open(TRAIN_TEST_IDS))['train'])
 
     cells = collections.defaultdict(dict)       # split -> combo -> results
     for f in glob.glob(osp.join(E, '*', '*', '*', '*', 'eval_*.json')):
         p = f.split(osp.sep)
         cells['{}/{}'.format(p[-5], p[-4])]['{}/{}'.format(p[-3], p[-2])] = json.load(open(f))['results']['video']
-    # Include known splits with manifests, even before features are extracted.
+    # Include known splits with manifests, even before scores are saved.
     metas = {s: split_meta(s, train_ids) for s in KNOWN}
     order = [s for s in KNOWN if metas.get(s)]
 
@@ -111,8 +131,8 @@ def main():
          "## Training identities in evaluation splits\n",
          "A split is only valid after finetuning if it contains **no training identities**. All",
          "splits except `ground_range_sim` exclude training identities.\n",
-         "| split | query → gallery | gallery clips / ids | query clips / ids | training ids "
-         "| valid post-training | features |",
+         "| split | gallery → query | gallery clips / ids | query clips / ids | training ids "
+         "| valid post-training | Scored checkpoints |",
          "|---|---|---|---|--:|---|---|"]
     for s in order:
         name, desc, src = KNOWN.get(s, (s, '', ''))
@@ -120,17 +140,15 @@ def main():
         ok = '**yes**' if m['ntr'] == 0 else '**NO** ({} ids)'.format(m['ntr'])
         L.append("| `{}` | {} | {:,} / {} | {:,} / {} | {} | {} | {} |".format(
             name, desc, m['g'], m['gi'], m['q'], m['qi'], m['ntr'], ok,
-            '{} combos'.format(len(cells[s])) if cells[s] else '**{}**'.format(PENDING)))
+            len(cells[s])))
 
     combos = sorted({c for s in order for c in cells[s]}, key=combo_key)
     L += ["", "## Which method ran on which split\n",
           "| method / source | " + " | ".join(KNOWN.get(s, (s,))[0] for s in order) + " |",
           "|---" * (1 + len(order)) + "|"]
     for c in combos:
-        # `—` means this combo has no features on that split (PENDING renders the same way for a
-        # split with no features at all).
         L.append("| `{}` | ".format(c) + " | ".join(
-            "✓" if c in cells[s] else ("—" if cells[s] else PENDING) for s in order) + " |")
+            "✓" if c in cells[s] else PENDING for s in order) + " |")
     L.append("")
 
     for s in order:
@@ -143,10 +161,8 @@ def main():
                   " (overlaps the training set)" if m['ntr'] else " (no overlap)")]
 
         if not cells[s]:
-            # Split built, no features extracted. Emit the empty table (which methods, which query
-            # ranges) so the split's shape is visible in the doc itself.
             toks = query_tokens(s)
-            L += ["**Features not extracted** for this split.\n",
+            L += ["No saved scores for this split. If you already have features, run `caliper-eval --features-dir /path/to/features --pooling video`.\n",
                   "| method / source | " + " | ".join("{} mAP | {} R1".format(t, t) for t in toks) +
                   " | comb mAP | comb R1 |", "|---" * (3 + 2 * len(toks)) + "|"]
             for c in COMBO_ORDER:
@@ -185,7 +201,7 @@ def main():
           "`combined_brc1_brc2_test/` (170 ids, 0 training) and `combined_brc1_brc2/` (365 gallery ids, "
           "195 training). Only the `_test` one is used here.", ""]
     open(out, 'w').write("\n".join(L))
-    print("wrote {} ({} splits, {} combos)".format(out, len(order), len(combos)))
+    print("wrote {} ({} splits, {} method/checkpoint pairs)".format(out, len(order), len(combos)))
 
 
 if __name__ == '__main__':

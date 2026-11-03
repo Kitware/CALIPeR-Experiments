@@ -1,3 +1,10 @@
+> ### Running CALIPeR
+>
+> For CALIPeR data setup and evaluation, follow the [benchmark README](../../README.md#reproducing-the-evaluation).
+> The benchmark entry points are `extract_features.sh` / `extract_caliper_features.py` in this directory (CAL backbone).
+> This method is evaluated zero-shot in CALIPeR; no CALIPeR training adapter is provided.
+> The original method documentation follows.
+
 # ReFace: Improving Clothes-Changing Re-Identification With Face Features
 
 Official implementation of the paper [*ReFace: Improving Clothes-Changing Re-Identification With Face Features*](https://arxiv.org/pdf/2211.13807.pdf).

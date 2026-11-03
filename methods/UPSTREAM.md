@@ -4,6 +4,11 @@ Each directory here is a copy of an upstream repository at the commit listed bel
 integration added on top. The upstream authors own the original code; see each repository for
 authorship, citation and license terms.
 
+For CALIPeR setup and evaluation, use the [benchmark README](../README.md) and
+[training guide](../TRAINING.md). Method READMEs retain the upstream workflows below a CALIPeR
+navigation note. The GEFF and X-TFCLIP top-level directories currently have no license file.
+Some nested components include their own license notices.
+
 | directory | upstream | base commit | date |
 |---|---|---|---|
 | `reid-strong-baseline` (BoT) | https://github.com/michuanhaohao/reid-strong-baseline | `7fda2273cc656b4db65f33ef38962873c44658a4` | 2020-04-23 |
@@ -26,21 +31,24 @@ Files marked *new* were added for CALIPeR; all other listed files are upstream f
 `README.md`, `.gitignore`.
 
 **SINet**: `caliper_ground.py`, `train_caliper.py`, `extract_caliper_features.py`, `extract_features.sh`,
-`.gitignore` (*new*); `transforms/spatial_transforms.py` (`collections.abc` import for Python ≥ 3.10).
+`.gitignore` (*new*); `transforms/spatial_transforms.py` (`collections.abc` import for Python ≥ 3.10),
+`README.md` (CALIPeR navigation).
 
 **CLIP-ReID**: `configs/caliper_ground_clipreid.yml`, `datasets/caliper_ground.py`, `train_caliper.py`,
 `extract_caliper_features.py`, `extract_features.sh` (*new*); `loss/triplet_loss.py` (removed an unused
-import), `.gitignore`.
+import), `.gitignore`, `README.md` (CALIPeR navigation).
 
 **PersonViT**: `transreid_pytorch/configs/caliper_ground_vit.yml`, `transreid_pytorch/datasets/caliper_ground.py`,
 `transreid_pytorch/train_caliper.py`, `transreid_pytorch/extract_caliper_features.py`,
-`transreid_pytorch/extract_features.sh`, `.gitignore` (*new*).
+`transreid_pytorch/extract_features.sh`, `.gitignore` (*new*); `README.md` (CALIPeR navigation).
 
-**GEFF**: `extract_caliper_features.py`, `extract_features.sh` (*new*); `.gitignore`.
+**GEFF**: `extract_caliper_features.py`, `extract_features.sh` (*new*); `.gitignore`,
+`README.md` (CALIPeR navigation).
 
 **X-TFCLIP**: `extract_caliper_features.py`, `extract_features.sh`, `.gitignore` (*new*);
 `model/clip/bpe_simple_vocab_16e6.txt.gz` (*new*: the standard CLIP BPE vocabulary, needed by the
-text encoder).
+text encoder); `README.md` (CALIPeR navigation and link formatting).
 
 **sapiensid**: `tasks/sapiensID/extract_caliper_features.py`, `tasks/sapiensID/extract_features.sh` (*new*);
-`tasks/sapiensID/src/aligners/keypoint_predictor/__init__.py` (one-line indexing fix), `.gitignore`.
+`tasks/sapiensID/src/aligners/keypoint_predictor/__init__.py` (one-line indexing fix), `.gitignore`,
+`README.md` (CALIPeR navigation).

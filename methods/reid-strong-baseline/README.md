@@ -9,9 +9,8 @@
 > Both need the `caliper_eval` package from the repository root on `PYTHONPATH` (or `pip install -e .`
 > at the repo root).
 >
-> **Read [`../../TRAINING.md`](../../TRAINING.md) before running anything** — it documents the corpus
-> rules, the sampler, and several failure modes that are silent rather than loud (identity labels,
-> shared-source dedup, partial checkpoint loads).
+> Start with the [benchmark README](../../README.md#reproducing-the-evaluation) for CALIPeR data setup
+> and evaluation. Use [TRAINING.md](../../TRAINING.md) for the fine-tuning corpus, sampler, and commands.
 >
 > Modified upstream files:
 >
@@ -20,7 +19,8 @@
 > * `config/defaults.py` — `DATASETS.ROOT_DIR` reads `CALIPER_DATA_ROOT`.
 > * `data/datasets/__init__.py` — registers the `kitbrc1` dataset.
 >
-> Everything else below is the original upstream README.
+> The upstream README below covers the original project. Its Ignite 0.1.2 installation pin predates
+> this fork's trainer changes; the modified trainer uses the Ignite ≥ 0.3 checkpoint API.
 
 # Bag of Tricks and A Strong ReID Baseline
 
