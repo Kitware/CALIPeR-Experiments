@@ -26,7 +26,8 @@ import utils.seqtransforms as SeqT                     # noqa: E402
 try:
     from caliper_eval import paths, features_io
 except ImportError:
-    sys.path.insert(0, osp.expanduser(os.environ.get('CALIPER_EVAL_HOME', osp.abspath(osp.join(osp.dirname(__file__), '../../')))))
+    _REPO_ROOT = osp.abspath(osp.join(osp.dirname(osp.abspath(__file__)), '..', '..'))   # monorepo root
+    sys.path.insert(0, osp.expanduser(os.environ.get('CALIPER_EVAL_HOME', _REPO_ROOT)))
     from caliper_eval import paths, features_io
 
 
@@ -37,11 +38,11 @@ def parse_args():
     ap.add_argument("--weight", default=osp.join(REPO, "weights/checkpoint_ep.pth.tar"))
     ap.add_argument("--source", required=True, help="pretraining source dataset label (e.g. agvpreid)")
     ap.add_argument("--method", default="x-tfclip")
-    ap.add_argument("--split", default="ground_range_sim")
-    ap.add_argument("--splits-dir", default="", help="default: paths.splits_dir(split)")
-    ap.add_argument("--out-dir", default="", help="default: paths.features_dir(split, method, source, dataset)")
-    ap.add_argument("--dataset", default="kitbrc1",
-                    help="dataset tree under reid-bench/eval/ (e.g. combined_brc1_brc2)")
+    ap.add_argument("--split", default="paperGR")
+    ap.add_argument("--splits-dir", default="", help="Crop split directory (default: $REID_BENCH_ROOT/splits/<split>).")
+    ap.add_argument("--out-dir", default="", help="Where to save features (default: $REID_BENCH_ROOT/eval/<dataset>/<split>/<method>/<source>).")
+    ap.add_argument("--dataset", default="combined_brc1_brc2",
+                    help="dataset tree under eval/ (combined_brc1_brc2; kitbrc1 for ground_range_sim)")
     ap.add_argument("--device", default="cuda", help="must be cuda: make_model hardcodes clip_model.to('cuda')")
     ap.add_argument("--max-clips", type=int, default=0,
                     help='Maximum clips to average per tracklet. Zero uses all columns of the '

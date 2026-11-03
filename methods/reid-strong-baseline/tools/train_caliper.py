@@ -34,10 +34,7 @@ def require_single_gpu():
     n = torch.cuda.device_count()
     if n != 1:
         raise SystemExit(
-            "Training requires one GPU. Found {} visible devices.\n"
-            "  engine/trainer.py wraps the model in nn.DataParallel when device_count() > 1, so this\n"
-            "  run would silently spread across all of them.\n"
-            "  Fix: sbatch --gres=gpu:1, or CUDA_VISIBLE_DEVICES=<n> for an interactive run."
+            "Training requires one GPU. Found {} visible devices. Set CUDA_VISIBLE_DEVICES to a single device."
             .format(n))
 
 
@@ -130,7 +127,7 @@ def log_composition(logger, ds, sampler, args, cfg):
     bs = cfg.SOLVER.IMS_PER_BATCH
     logger.info("len(sampler)=%d -> %d iterations at batch %d", len(sampler), len(sampler) // bs, bs)
 
-    # Only assert on the exact configuration the plan pins down; a holdout run legitimately differs.
+    # Expected counts apply to the full corpus.
     if args.holdout:
         return
     want_n = EXPECTED_EPOCH.get(args.sim_mode)
@@ -142,7 +139,7 @@ def log_composition(logger, ds, sampler, args, cfg):
         bad.append("1000m-labelled subjects is %d, expected %d" % (n1k, want_ids))
     if bad:
         raise SystemExit(
-            "refusing to train: the corpus does not match the plan for sim_mode=%s.\n  %s\n"
+            "Training data do not match the expected composition for sim_mode=%s.\n  %s\n"
             "  Check the training manifest and sampling options." % (args.sim_mode, "\n  ".join(bad)))
 
 
@@ -170,7 +167,7 @@ def main():
     ap.add_argument("--sim-chip-root", default="",
                     help='Directory containing synthetic training crops.')
     ap.add_argument("--frames-per-tracklet", type=int, default=32, help="per-epoch cap; 0 = all")
-    ap.add_argument("--chip-root", default="", help="override the chip root (e.g. a /dev/shm stage)")
+    ap.add_argument("--chip-root", default="", help="override the chip root (e.g. a RAM-disk copy)")
     ap.add_argument("--seed", type=int, default=1234)
     ap.add_argument("opts", default=None, nargs=argparse.REMAINDER)
     args = ap.parse_args()

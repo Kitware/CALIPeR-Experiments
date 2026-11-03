@@ -29,8 +29,8 @@ def main():
         c = GroundFieldCorpus(sim_mode='add', sim_chip_root=args.src)
     else:
         c = GroundFieldCorpus(chip_root=args.src)
-    # copy in tracklet order: chips of one tracklet sit in one directory, so this reads the HDD in
-    # something close to inode order instead of seeking per file
+    # copy in tracklet order: chips of one tracklet sit in one directory, so this reads the source
+    # roughly directory by directory instead of seeking per file
     rels = []
     want_sim = bool(args.sim)
     for t in sorted(c._tk.values(), key=lambda x: str(x['tid'])):
@@ -38,7 +38,7 @@ def main():
             continue
         rels.extend(t['paths'])
     # sample RANDOMLY, not the first N: rels is in tracklet order, so a head slice is one or two
-    # tracklets and badly misestimates the mean chip size (it under-read by ~2x in practice).
+    # tracklets and badly misestimates the mean chip size.
     import random as _r
     probe = _r.Random(0).sample(rels, min(2000, len(rels)))
     est = sum(os.path.getsize(osp.join(args.src, r)) for r in probe) / len(probe) * len(rels) / 2**30
@@ -52,9 +52,8 @@ def main():
     if avail < est * 1.1:
         sys.exit("ABORT: {:.1f} GiB free at {}, need ~{:.1f} GiB".format(avail, args.dest, est))
 
-    # group-writable + setgid, so whoever stages it first, the rest of the group can top it up or
-    # rebuild it after a reboot. Without this the tree is owned r-x by the group and only the original
-    # stager can re-run.
+    # group-writable + setgid: a shared-machine convenience so other members of the group can top up
+    # or rebuild the staged tree, not only the user who created it.
     os.makedirs(args.dest, exist_ok=True)
     try:
         os.chmod(args.dest, 0o2775)

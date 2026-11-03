@@ -21,7 +21,8 @@ from data.datasets.eval_reid import eval_func           # noqa: E402
 try:
     from caliper_eval import paths                        # noqa: E402
 except ImportError:
-    sys.path.insert(0, os.path.expanduser(os.environ.get('CALIPER_EVAL_HOME', os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))))
+    _REPO_ROOT = osp.abspath(osp.join(osp.dirname(__file__), '..', '..', '..'))
+    sys.path.insert(0, os.environ.get('CALIPER_EVAL_HOME', _REPO_ROOT))
     from caliper_eval import paths                        # noqa: E402
 
 QUERY_CAMERAS = {'500m': 'query_500m.kwcoco.json', '1000m': 'query_1000m.kwcoco.json'}

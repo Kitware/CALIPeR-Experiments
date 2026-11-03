@@ -25,7 +25,9 @@ from model.make_model_clipreid import make_model         # noqa: E402
 try:
     from caliper_eval import paths, features_io
 except ImportError:
-    sys.path.insert(0, osp.expanduser(os.environ.get('CALIPER_EVAL_HOME', osp.abspath(osp.join(osp.dirname(__file__), '../../')))))
+    # fall back to the monorepo root (the directory containing caliper_eval/)
+    _REPO_ROOT = osp.abspath(osp.join(REPO, '..', '..'))
+    sys.path.insert(0, os.environ.get('CALIPER_EVAL_HOME', _REPO_ROOT))
     from caliper_eval import paths, features_io
 
 
@@ -88,9 +90,12 @@ def main():
     ap.add_argument("--weight", required=True, help="CLIP-ReID finetuned checkpoint (e.g. Market1501 ViT-B-16)")
     ap.add_argument("--source", required=True, help="pretraining source domain (e.g. market1501, msmt17)")
     ap.add_argument("--method", default="clip-reid")
-    ap.add_argument("--split", default="ground_range")
-    ap.add_argument("--splits-dir", default="", help="default: paths.splits_dir(split)")
-    ap.add_argument("--out-dir", default="", help="default: paths.features_dir(method, source, split)")
+    ap.add_argument("--split", default="paperGR")
+    ap.add_argument("--dataset", default="combined_brc1_brc2",
+                    help="eval dataset the split belongs to (kitbrc1 for ground_range_sim)")
+    ap.add_argument("--splits-dir", default="", help="Crop split directory (default: $REID_BENCH_ROOT/splits/<split>).")
+    ap.add_argument("--out-dir", default="",
+                    help="Where to save features (default: $REID_BENCH_ROOT/eval/<dataset>/<split>/<method>/<source>).")
     ap.add_argument("--num-classes", type=int, default=1,
                     help="only sizes the unused classifier/prompt head; load is tolerant to mismatch")
     ap.add_argument("--device", default="cuda")
@@ -120,7 +125,7 @@ def main():
     model = model.to(args.device)
 
     splits_dir = args.splits_dir or paths.splits_dir(args.split)
-    out_dir = args.out_dir or paths.features_dir(args.split, args.method, args.source)
+    out_dir = args.out_dir or paths.features_dir(args.split, args.method, args.source, dataset=args.dataset)
     os.makedirs(out_dir, exist_ok=True)
 
     for role, coco, fname_token in features_io.discover_role_files(splits_dir):

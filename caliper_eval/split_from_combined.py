@@ -78,39 +78,24 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--split-json', required=True, help='video-level split manifest')
     ap.add_argument('--out-dir', required=True, help='directory to emit gallery/query kwcoco into')
-    ap.add_argument('--chip-index', default=DEFAULT_CHIP_INDEX)
-    ap.add_argument('--crop-root', default=DEFAULT_CROP_ROOT)
-    ap.add_argument('--gallery-token', default='gallery',
-                    help="synthetic camera_token for the gallery role (it spans many cameras)")
-    ap.add_argument('--query-token', default='query',
-                    help="token for the query role; also becomes the query_<TOKEN>.kwcoco.json filename, "
-                         "which is where discover_role_files reads the range label from")
+    ap.add_argument('--chip-index', default=DEFAULT_CHIP_INDEX,
+                    help="Crop index (default: $CALIPER_DATA_ROOT/reid-chips/chip_index.jsonl).")
+    ap.add_argument('--crop-root', default=DEFAULT_CROP_ROOT,
+                    help="Root directory for the indexed crops.")
+    ap.add_argument('--gallery-token', default='gallery', help="Label for the gallery in saved features.")
+    ap.add_argument('--query-token', default='query', help="Label for the query file, query_<label>.kwcoco.json.")
     ap.add_argument('--query-token-per-tok', action='store_true',
-                    help="emit ONE query_<tok>.kwcoco.json per distinct range bucket instead of a single "
-                         "file under --query-token. Needed for splits whose query spans several ranges -- "
-                         "paperGR is 500m+1000m, and collapsing them into one bucket loses the per-range "
-                         "breakdown the eval reports. All buckets are built in this SAME invocation so they "
-                         "share one subject_ids/camera_ids registry; emitting them from two runs would "
-                         "renumber subjects per file and silently destroy every match (see build_role).")
+                    help="Write one query file per distance. Use this for the 500m and 1000m paperGR queries.")
     ap.add_argument('--camid-by-role', action='store_true',
-                    help="assign ONE camera_id per role (gallery=1, query=2) instead of the physical "
-                         "camera. Required for same-camera protocols such as clothing set1 -> set2: "
-                         "eval_func excludes gallery entries sharing a query's (pid, camid), so with "
-                         "physical camids the true matches are deleted as same-camera hits and the "
-                         "score collapses. Do NOT use where the two sides already differ by camera "
-                         "(ground vs aerial, BRC1 vs BRC2) -- there the physical camid is meaningful.")
+                    help="Assign camera ID 1 to the gallery and 2 to queries. Use this when a protocol "
+                         "treats each role as a camera. For paper clothing scores, keep the physical "
+                         "IDs and score with --cam-exclusion none.")
     ap.add_argument('--mated-only', action='store_true',
-                    help="drop QUERY videos whose subject has no gallery counterpart. eval_reid.eval_func "
-                         "already skips such queries (`if not np.any(orig_cmc): continue`) and divides by "
-                         "num_valid_q, and queries never distract each other -- only the gallery does -- so "
-                         "their features are inert and the metrics are BIT-FOR-BIT identical without them. "
-                         "Big win where the roles barely overlap: cross-collection is 39/239 mated, so this "
-                         "cuts the query side 83%% and the whole split 44%%. NEVER applied to the gallery: "
-                         "its unmated identities are legitimate distractors and removing them would inflate "
-                         "scores.")
+                    help="Skip queries whose subject is absent from the gallery. Keep all gallery subjects. "
+                         "Leave this off for open-set evaluation, which needs unmatched queries.")
     ap.add_argument('--max-videos-per-role', type=int, default=0,
-                    help="emit at most N videos per role (0 = all). For SMOKE TESTS only: keeps subjects "
-                         "mated by taking whole subjects in order, so the tiny split still evaluates.")
+                    help="Limit videos in each role for a quick trial. Zero uses all videos.")
+
     args = ap.parse_args()
 
     idx = load_chip_index(args.chip_index)

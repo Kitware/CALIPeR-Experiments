@@ -8,7 +8,7 @@
 # Optimisation is NOT harmonised -- each method keeps what its authors tuned. So the two-stage
 # schedule, the Adam LRs (3.5e-4 stage 1, 5e-6 stage 2) and STEPS below are CLIP-ReID's own.
 #
-# THE TWO STAGES ARE NOT SYMMETRIC, which matters for how the run matrix is read:
+# THE TWO STAGES ARE NOT SYMMETRIC:
 #   STAGE1 trains ONLY the text prompt tokens, with the image encoder frozen and image features
 #          cached once before the epoch loop (processor_clipreid_stage1.py:47-52). Cheap, and it
 #          cannot overfit the encoder because it never touches it.
@@ -16,11 +16,10 @@
 #          the stage that overfits, and the only stage that writes checkpoints
 #          (processor_clipreid_stage2.py:133).
 # One run therefore yields the whole STAGE2 epoch curve for free but pins STAGE1 at one value.
-# Exploring STAGE1 properly would be a 2-D grid; instead the matrix carries a single 60-epoch STAGE1
-# probe against the default 120, holding STAGE2 fixed.
+# STAGE1 MAX_EPOCHS is reduced from the published 120 to 15; see the note at that key.
 #
 # Infrastructural differences from the stock recipe:
-#   NUM_WORKERS 8 -> 3, matching --cpus-per-task.
+#   NUM_WORKERS 3 (raise if you have more CPU cores).
 #   STAGE2 CHECKPOINT_PERIOD/EVAL_PERIOD 60 -> 5, so every epoch of the curve is retained and
 #   scoreable later without retraining. The stock value writes exactly one checkpoint, at the end.
 
@@ -67,11 +66,11 @@ SOLVER:
     WEIGHT_DECAY_BIAS: 1e-4
     # 15, NOT the published 120. An "epoch" here is a pass over the training set, and the recipe was
     # tuned on Market1501: 12,936 images / batch 64 = 202 iterations per epoch, so 120 epochs is
-    # 24,240 prompt-training updates. Our corpus is 233,821 images = 3,654 iterations per epoch, so
-    # 120 epochs would be 438,480 updates -- 18x what the recipe calls for, and 11.6 h of wall clock
-    # (measured 5.8 min/epoch). Matching UPDATES rather than epochs gives ~7 epochs against Market
-    # and ~17 against MSMT17 (32,621 images, 61,152 updates); we init from MSMT17, so 15.
-    # This is the same trap that made bot's stage-equivalent 120-epoch schedule overtrain badly.
+    # 24,240 prompt-training updates. The full ground-field corpus is 269,084 images = 4,205
+    # iterations per epoch (a 30-identity holdout leaves 233,821 = 3,654), so 120 epochs would be
+    # ~20x the updates the recipe calls for. Matching UPDATES rather than epochs gives ~6 epochs
+    # against Market and ~15 against MSMT17 (32,621 images, 61,152 updates); we init from MSMT17,
+    # so 15.
     MAX_EPOCHS: 15
     CHECKPOINT_PERIOD: 15
     LOG_PERIOD: 500

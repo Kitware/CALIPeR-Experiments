@@ -101,20 +101,6 @@ def build_loaders(cfg, args):
     train_transforms = train_transform(cfg)
     val_transforms = val_transform(cfg)
 
-    if args.chip_cache:
-        # DISABLED. The cache itself verifies clean -- all 269,084 rows are byte-equal to
-        # T.Resize([256,128], interpolation=3) on the decoded JPEG, and this method's real
-        # train_transform produces bit-identical tensors from cached pixels over 500 chips. But an
-        # end-to-end comparison of batches out of THIS function disagreed (max |diff| ~6.0, labels
-        # identical so the sampler order matched), and the cause was never isolated -- most likely
-        # RNG misalignment between two separately-constructed loaders rather than wrong pixels, but
-        # "most likely" is not a basis for training on it. Re-enable only after
-        # scratchpad/test_loaders.py passes.
-        raise SystemExit(
-            "--chip-cache is disabled: end-to-end loader equivalence is unproven for this method.\n"
-            "  Pixel-level and transform-level checks pass (see caliper_reid_eval/verify_cache.py),\n"
-            "  but batches from build_loaders() differed. Do not train on it until that is resolved.")
-
     def train_ds(items):
         return ImageDataset(items, train_transforms)
 

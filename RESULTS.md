@@ -1,9 +1,9 @@
 # CALIPeR ReID — published results
 
-Method names below link to the upstream repo each is built on. **BoT, SINet, CLIP-ReID, and
-PersonViT links will be updated to point at our own forks** (CALIPeR training code included) once
-those are pushed. CAL, X-TFCLIP, and SapiensID all ship eval-only forks (feature extraction only,
-no fine-tuning) — SapiensID also carries one small upstream bugfix (an aligner indexing error).
+Method names below link to the upstream repository each is built on; our forks, with the CALIPeR
+integration, are under [`methods/`](methods/). BoT, SINet, CLIP-ReID and PersonViT include fine-tuning
+code ([TRAINING.md](TRAINING.md)). CAL, X-TFCLIP and SapiensID include feature extraction only. The
+SapiensID fork also carries one small upstream bugfix (an aligner indexing error).
 
 ## Headline: pre-trained vs. fine-tuned vs. fine-tuned + synthetic
 
@@ -20,32 +20,9 @@ evaluated zero-shot only.
 | [PersonViT](https://github.com/hustvl/PersonViT) | MSMT17 | 52.3 / 96.1 | 51.3 / 96.2 | 52.1 / 96.4 | **49.7** / **93.5** | 44.6 / 87.1 | 43.9 / 84.7 | **34.6** / **85.9** | **34.6** / **81.6** | 13.9 / 14.7 | **10.3** / 18.3 |
 | [SapiensID](https://github.com/mk-minchul/sapiensid) | WebBody-12M | **53.9** / **96.4** | N/A | N/A | 22.1 / 35.8 | N/A | N/A | 17.6 / 59.0 | 14.1 / 53.8 | **15.4** / **33.5** | 8.5 / **21.9** |
 
-The FT and FT+syn columns are single runs — one seed per arm, with no noise floor estimated.
-
-### ⚠ Eval protocol note — Longitudinal column, verification TODO
-
-`eval_reid.py` had a bug (now fixed, see git history) that unconditionally discarded gallery items
-sharing `(pid, camid)` with the query — correct for Market1501, but on the Longitudinal
-(cross-collection) split a true match can legitimately share a camera id with its query, so this
-silently dropped genuine matches. Verified on BoT/Market1501: the old buggy code reproduced this
-repo's previously-logged number (mAP 1.0 / R1 3.3) exactly; the fix moves it to 1.2 / 4.7, toward
-the published 2.4 / 5.8.
-
-The remaining gap most likely isn't noise — it's that this test ran against the *unpartitioned*
-cross-collection split (202 gallery ids, including 89 training identities as extra distractors),
-while the published numbers almost certainly used the identity-partitioned `cross-collection_test`
-split (113 gallery ids, 0 training identities) that `results_table.py` now reports exclusively.
-Per that script's own notes: removing training identities also removes them as distractors, which
-legitimately raises mAP/R1 — not noise, a real protocol difference. **Not yet independently
-confirmed** because BoT/Market1501 (and the other 3 affected rows) have never actually been
-extracted against `cross-collection_test` — only CAL and X-TFCLIP have features there so far.
-
-**Follow-up to do before fully trusting this column:**
-- Run feature extraction for BoT, SINet, CLIP-ReID, PersonViT, and SapiensID's zero-shot checkpoints
-  against `cross-collection_test` (not just the unpartitioned `cross-collection`), then re-score with
-  the fixed eval code, and confirm the numbers land on the published 2.4/5.8-style values.
-- Check whether the other "other modalities" columns have the same camid-exclusion sensitivity —
-  less likely to matter now that they're all partitioned splits already, but not yet checked.
+FT and FT+syn are single training runs (one seed each), read out at an epoch chosen on a held-out
+validation split, not on the test split. See [TRAINING.md](TRAINING.md) for the settings and the
+epoch-selection procedure.
 
 ## Full zero-shot survey (all methods, all released checkpoints)
 

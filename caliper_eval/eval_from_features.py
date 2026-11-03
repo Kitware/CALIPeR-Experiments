@@ -109,18 +109,26 @@ def evaluate(qF, q_pids, q_camids, gF, g_pids, g_camids, metric, cam_exclusion):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Score cached CALIPeR features with NumPy.")
+    ap = argparse.ArgumentParser(
+        description="Score saved gallery and query features.",
+        epilog="Paper scoring example: caliper-eval --features-dir /path/to/features --pooling video",
+    )
     ap.add_argument('--features-dir', required=True, help='Directory containing the gallery and query feature archives.')
-    ap.add_argument('--pooling', nargs='+', default=ALL_POOLINGS, choices=ALL_POOLINGS)
-    ap.add_argument('--pool-op', default='mean', choices=['mean', 'max'])
-    ap.add_argument('--metric', default='cosine', choices=['cosine', 'euclidean'])
-    ap.add_argument('--min-track-crops', type=int, default=0)
+    ap.add_argument('--pooling', nargs='+', default=ALL_POOLINGS, choices=ALL_POOLINGS,
+                    help='Score each crop (image) or each video (video). The default runs both. Use video for paper scores and for SINet or X-TFCLIP features.')
+    ap.add_argument('--pool-op', default='mean', choices=['mean', 'max'],
+                    help='Combine crop features by their mean (default) or elementwise maximum.')
+    ap.add_argument('--metric', default='cosine', choices=['cosine', 'euclidean'],
+                    help='Distance used to rank matches (default: cosine).')
+    ap.add_argument('--min-track-crops', type=int, default=0,
+                    help='Skip tracks with fewer than this many crops. Zero keeps all tracks.')
     ap.add_argument('--max-per-video', type=int, default=0,
                     help='Maximum number of evenly spaced frames per video before pooling. Zero uses all frames.')
     ap.add_argument('--cam-exclusion', default='none', choices=['none', 'market'],
                     help='Use none for CALIPeR. The Market1501 rule (market) excludes gallery '
                          'entries that share both the query identity and its camera.')
-    ap.add_argument('--out', default='')
+    ap.add_argument('--out', default='',
+                    help='Path for the score JSON. By default it is saved beside the features.')
     args = ap.parse_args()
 
     g_path, q_paths = discover_roles(args.features_dir)
@@ -167,8 +175,8 @@ def main():
     summary = dict(pool_op=args.pool_op, metric=args.metric, min_track_crops=args.min_track_crops,
                    max_per_video=args.max_per_video, cam_exclusion=args.cam_exclusion,
                    results=results, **prov)
-    # keep the default (cam_exclusion='none') filename unchanged so existing tooling's glob still
-    # finds it; only the explicit 'market' parity-check run gets a distinguishing suffix.
+    # the default (cam_exclusion='none') output is eval_<pool_op>_<metric>.json; a 'market' run gets a
+    # distinguishing suffix so both can live in the same features dir.
     suffix = '' if args.cam_exclusion == 'none' else '_' + args.cam_exclusion
     out = args.out or osp.join(args.features_dir, 'eval_{}_{}{}.json'.format(args.pool_op, args.metric, suffix))
     with open(out, 'w') as f:

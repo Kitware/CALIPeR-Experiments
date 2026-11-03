@@ -1,13 +1,13 @@
 #!/bin/bash
+# Legacy: reproduces the BRC1 ground_range protocol (crop-level kwcoco splits read by
+# data/datasets/kitbrc1.py), NOT the paper's results -- for those use ./extract_features.sh.
+#
 # Image-level ReID on the CALIPeR KITBRC1 ground-range benchmark (score each crop/image independently).
 #   Fixed 380m gallery vs combined 500m+1000m query.
 #   Model: Market1501 ResNet50 (all tricks), after-BN + cosine (matches the checkpoint's reported 94.5%).
 #
 # KITBRC1_MAX_PER_APPEARANCE=16 -> <=16 crops per (video,subject); keeps the query x gallery distance
 #                             matrix small.
-#
-# NOTE: query side (esp. 1000m) is preliminary -- the upstream best-track heuristic is unsupervised, so the
-#       selected track isn't guaranteed to be the labeled subject; numbers improve with subject-track GT.
 
 cd "$(dirname "$0")"
 

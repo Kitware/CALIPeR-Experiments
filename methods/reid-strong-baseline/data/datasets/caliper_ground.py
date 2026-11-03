@@ -9,9 +9,10 @@ from .bases import BaseImageDataset
 try:
     from caliper_eval.train_corpus import GroundFieldCorpus
 except ImportError:
-    # Fall back to a sibling checkout so this works without installing the package.
-    # Override with CALIPER_EVAL_HOME if caliper_reid_eval lives elsewhere.
-    sys.path.insert(0, osp.expanduser(os.environ.get('CALIPER_EVAL_HOME', osp.abspath(osp.join(osp.dirname(__file__), '../../../../')))))
+    # Fall back to the repository root so this works without installing the package.
+    # Override with CALIPER_EVAL_HOME if caliper_eval lives elsewhere.
+    _REPO_ROOT = osp.abspath(osp.join(osp.dirname(__file__), '..', '..', '..', '..'))
+    sys.path.insert(0, os.environ.get('CALIPER_EVAL_HOME', _REPO_ROOT))
     from caliper_eval.train_corpus import GroundFieldCorpus
 
 

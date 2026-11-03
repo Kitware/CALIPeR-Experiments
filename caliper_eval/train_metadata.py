@@ -38,8 +38,6 @@ def write_run_json(output_dir, cfg=None, args=None, corpus=None, repo_dir='.',
         'python': sys.executable,
         'output_dir': osp.abspath(output_dir),
         'repo': _repository_record(repo_dir),
-        'slurm': {k: v for k, v in os.environ.items() if k.startswith('SLURM_JOB')
-                  or k.startswith('SLURM_ARRAY')},
         'cuda_visible_devices': os.environ.get('CUDA_VISIBLE_DEVICES'),
     }
     if args is not None:

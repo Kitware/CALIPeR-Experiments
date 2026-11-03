@@ -3,11 +3,3 @@ __pycache__/
 .vscode/
 .idea/
 weights/
-
-# training-only additions, out of scope: X-TFCLIP ships eval/zero-shot only in the published results
-datasets/caliper_ground.py
-configs/caliper_ground_xtfclip.yml
-train_caliper.py
-utils/osutils.py
-utils/serialization.py
-utils/reranking.py

@@ -24,7 +24,8 @@ from ReIDModules.CAL.models.img_resnet import ResNet50          # noqa: E402
 try:
     from caliper_eval import paths, features_io
 except ImportError:
-    sys.path.insert(0, osp.expanduser(os.environ.get('CALIPER_EVAL_HOME', osp.abspath(osp.join(osp.dirname(__file__), '../../')))))
+    _REPO_ROOT = osp.abspath(osp.join(osp.dirname(osp.abspath(__file__)), '..', '..'))   # monorepo root
+    sys.path.insert(0, osp.expanduser(os.environ.get('CALIPER_EVAL_HOME', _REPO_ROOT)))
     from caliper_eval import paths, features_io
 
 
@@ -35,11 +36,11 @@ def parse_args():
     ap.add_argument("--source", required=True,
                     help="training dataset label: last | ltcc | prcc | vc-clothes")
     ap.add_argument("--method", default="cal")
-    ap.add_argument("--split", default="ground_range_sim")
-    ap.add_argument("--splits-dir", default="", help="default: paths.splits_dir(split)")
-    ap.add_argument("--out-dir", default="", help="default: paths.features_dir(split, method, source, dataset)")
-    ap.add_argument("--dataset", default="kitbrc1",
-                    help="dataset tree under reid-bench/eval/ (e.g. combined_brc1_brc2)")
+    ap.add_argument("--split", default="paperGR")
+    ap.add_argument("--splits-dir", default="", help="Crop split directory (default: $REID_BENCH_ROOT/splits/<split>).")
+    ap.add_argument("--out-dir", default="", help="Where to save features (default: $REID_BENCH_ROOT/eval/<dataset>/<split>/<method>/<source>).")
+    ap.add_argument("--dataset", default="combined_brc1_brc2",
+                    help="dataset tree under eval/ (combined_brc1_brc2; kitbrc1 for ground_range_sim)")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--no-flip", action="store_true", help='Disable horizontal-flip augmentation at evaluation.')
     ap.add_argument("--batch-size", type=int, default=128)

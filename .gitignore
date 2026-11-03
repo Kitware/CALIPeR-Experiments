@@ -69,16 +69,5 @@ events.out.tfevents.*
 Thumbs.db
 Desktop.ini
 
-# SLURM job logs
+# job logs
 *.out
-
-# generated plots/reports (regeneratable from caliper_eval/*.py)
-papergr_curves/
-papergr_synth*/
-val_curves/
-
-
-
-# Local-only files
-.local/
-*.local.*

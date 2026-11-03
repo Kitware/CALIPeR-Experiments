@@ -23,7 +23,7 @@
 #   in try/except-continue, so a shape-mismatched or partial load is indistinguishable from a clean
 #   one -- which for a finetune would quietly mean training from scratch.
 #
-#   NUM_WORKERS 8 -> 3, to match --cpus-per-task=3 (12 cores / 3 concurrent jobs).
+#   NUM_WORKERS 8 -> 3 (raise if you have more CPU cores).
 #
 #   EVAL_PERIOD / CHECKPOINT_PERIOD are overridden per run on the command line.
 

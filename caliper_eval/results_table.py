@@ -12,9 +12,7 @@ from caliper_eval import paths
 # Root of the released CALIPeR dataset tree. Override with CALIPER_DATA_ROOT.
 TRAIN_TEST_IDS = osp.join(os.environ.get('CALIPER_DATA_ROOT', 'data'), 'CALIPER_PyBSM', 'train_test_ids.json')
 
-# Reporting order, matching paperGR/results_table.md. Grouped by method with the smaller pretraining
-# corpus first, so the msmt17>market1501 and lsvid>mars pairs read as adjacent comparisons. Anything
-# not listed (e.g. the finetuned `caliper-ground` runs) is appended alphabetically.
+# Group the results by method and pretraining source.
 COMBO_ORDER = ['bot/market1501', 'sinet/mars', 'sinet/lsvid',
                'clip-reid/market1501', 'clip-reid/msmt17',
                'personvit/market1501', 'personvit/msmt17',
@@ -38,7 +36,7 @@ KNOWN = collections.OrderedDict([
     ('combined_brc1_brc2/paperGR', ('paperGR', 'gallery 380m → query 500m + 1000m',
      'combined_brc1_brc2_test/test_ground-range_combined_paperGR.json')),
     ('kitbrc1/ground_range_sim', ('ground_range_sim', 'real 380m gallery → pyBSM-degraded queries',
-     'built pre-partition; 3 Cn² levels -- feeds the simulated-vs-real comparison, not the main survey')),
+     'not identity-partitioned; 3 Cn² levels -- feeds the simulated-vs-real comparison, not the main survey')),
     ('combined_brc1_brc2/cross-collection_test', ('cross-collection (Longitudinal)',
      'BRC1 field → BRC2 field, test ids only',
      'combined_brc1_brc2_test/test_cross-collection_combined.json')),
@@ -57,7 +55,7 @@ KNOWN = collections.OrderedDict([
 ])
 
 # Placeholder for an unavailable score.
-PENDING = 'NOW'
+PENDING = '—'
 
 
 def split_meta(split_dir, train_ids):
@@ -93,7 +91,7 @@ def query_tokens(split_dir):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    ap.add_argument('--out', default='')
+    ap.add_argument('--out', default='', help='default: <REID_BENCH_ROOT>/eval/RESULTS.md')
     args = ap.parse_args()
     E = osp.join(paths.ROOT, 'eval')
     out = args.out or osp.join(E, 'RESULTS.md')
@@ -111,8 +109,8 @@ def main():
          "Video pooling, cosine, all frames (`--max-per-video 0`). Regenerate with",
          "`python -m caliper_eval.results_table`.\n",
          "## Training identities in evaluation splits\n",
-         "A split is only valid after finetuning if it contains **no training identities**. Most of",
-         "these predate the 232/170 identity partition.\n",
+         "A split is only valid after finetuning if it contains **no training identities**. All",
+         "splits except `ground_range_sim` exclude training identities.\n",
          "| split | query → gallery | gallery clips / ids | query clips / ids | training ids "
          "| valid post-training | features |",
          "|---|---|---|---|--:|---|---|"]
@@ -129,8 +127,8 @@ def main():
           "| method / source | " + " | ".join(KNOWN.get(s, (s,))[0] for s in order) + " |",
           "|---" * (1 + len(order)) + "|"]
     for c in combos:
-        # `—` means this combo did not run on an otherwise-extracted split; PENDING means nothing has
-        # run on that split at all, so the blank is a scheduling state rather than a decision.
+        # `—` means this combo has no features on that split (PENDING renders the same way for a
+        # split with no features at all).
         L.append("| `{}` | ".format(c) + " | ".join(
             "✓" if c in cells[s] else ("—" if cells[s] else PENDING) for s in order) + " |")
     L.append("")
@@ -145,11 +143,10 @@ def main():
                   " (overlaps the training set)" if m['ntr'] else " (no overlap)")]
 
         if not cells[s]:
-            # Split built, nothing extracted. Emit the table the extraction will fill, so the shape of
-            # the pending work (which methods, which query ranges) is visible in the doc itself.
+            # Split built, no features extracted. Emit the empty table (which methods, which query
+            # ranges) so the split's shape is visible in the doc itself.
             toks = query_tokens(s)
-            L += ["⏳ **Features not extracted yet** — every metric below reads `{}` until "
-                  "`{}` has been run for this split.\n".format(PENDING, 'extract_caliper_features.py'),
+            L += ["**Features not extracted** for this split.\n",
                   "| method / source | " + " | ".join("{} mAP | {} R1".format(t, t) for t in toks) +
                   " | comb mAP | comb R1 |", "|---" * (3 + 2 * len(toks)) + "|"]
             for c in COMBO_ORDER:
@@ -173,13 +170,13 @@ def main():
           "training identities from a gallery also drops them as distractors, which would otherwise "
           "make an unpartitioned split score higher for reasons that have nothing to do with the "
           "model -- so don't compare these numbers against an unpartitioned run of the same split.",
-          "- **`ground_range_sim` predates the identity partition** (100 subjects, 28 training "
+          "- **`ground_range_sim` is not identity-partitioned** (100 subjects, 28 training "
           "identities) and isn't part of the main zero-shot survey — it exists to compare simulated "
           "vs. real query CMC curves (same real 380m gallery, pyBSM-degraded 1000m queries at 3 "
           "turbulence strengths vs. real 1000m queries).",
           "- **`cross-collection` is open-set** (39 mated of 96 query ids); a query with no gallery "
-          "match is excluded from the mean automatically (now recorded as `dropped_queries` in the "
-          "eval JSON, see `eval_from_features.py --cam-exclusion`). ~±15 pp Rank-1 resolution; "
+          "match is excluded from the mean automatically (counted as `dropped_queries` in the "
+          "eval JSON). ~±15 pp Rank-1 resolution; "
           "qualitative only.",
           "- **`enroll-field`'s gallery is 232 ids but 0 of them are training ids** — it is the 170 test "
           "subjects plus the 62 canonical ids that carry no field media and so fall in neither "

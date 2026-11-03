@@ -153,15 +153,9 @@ def do_train(
     logger.info("Start training")
     trainer = create_supervised_trainer(model, optimizer, loss_fn, device=device)
     evaluator = create_supervised_evaluator(model, metrics={'r1_mAP': R1_mAP(num_query, max_rank=50, feat_norm=cfg.TEST.FEAT_NORM)}, device=device)
-    # ignite >=0.3 removed ModelCheckpoint's `save_interval`; its 3rd positional is now
-    # `score_function`, so the original call passed checkpoint_period (an int) as a callable and
-    # ignite raised "'int' object is not callable" at the first EPOCH_COMPLETED. Save frequency is
-    # now expressed by filtering the event instead, which preserves the original behaviour.
-    # n_saved=None, not 10. n_saved is a ROLLING WINDOW: ignite keeps the N most recent checkpoints and
-    # deletes the rest, so a 120-epoch run saving every 5 would silently drop epochs 5-70 and leave
-    # only the tail. These runs exist so that any epoch can be scored later without retraining, which
-    # makes the early ones exactly the ones worth keeping. Model weights only -- optimizer state buys
-    # nothing but resumability, and a rerun is cheaper than the ~3x disk.
+    # ignite>=0.3 removed ModelCheckpoint's `save_interval`; save frequency is set by filtering the
+    # event. n_saved=None keeps every periodic checkpoint so any epoch can be evaluated later; only
+    # model weights are saved.
     checkpointer = ModelCheckpoint(output_dir, cfg.MODEL.NAME, n_saved=None, require_empty=False)
     timer = Timer(average=True)
 
@@ -241,10 +235,8 @@ def do_train_with_center(
     logger.info("Start training")
     trainer = create_supervised_trainer_with_center(model, center_criterion, optimizer, optimizer_center, loss_fn, cfg.SOLVER.CENTER_LOSS_WEIGHT, device=device)
     evaluator = create_supervised_evaluator(model, metrics={'r1_mAP': R1_mAP(num_query, max_rank=50, feat_norm=cfg.TEST.FEAT_NORM)}, device=device)
-    # ignite >=0.3 removed ModelCheckpoint's `save_interval`; its 3rd positional is now
-    # `score_function`, so the original call passed checkpoint_period (an int) as a callable and
-    # ignite raised "'int' object is not callable" at the first EPOCH_COMPLETED. Save frequency is
-    # now expressed by filtering the event instead, which preserves the original behaviour.
+    # ignite>=0.3 removed ModelCheckpoint's `save_interval`; save frequency is set by filtering the
+    # event.
     checkpointer = ModelCheckpoint(output_dir, cfg.MODEL.NAME, n_saved=10, require_empty=False)
     timer = Timer(average=True)
 

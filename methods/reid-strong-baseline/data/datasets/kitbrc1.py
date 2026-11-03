@@ -11,7 +11,8 @@ try:
     from caliper_eval import paths
 except ImportError:
     import sys
-    sys.path.insert(0, osp.expanduser(os.environ.get('CALIPER_EVAL_HOME', osp.abspath(osp.join(osp.dirname(__file__), '../../../../')))))
+    _REPO_ROOT = osp.abspath(osp.join(osp.dirname(__file__), '..', '..', '..', '..'))
+    sys.path.insert(0, os.environ.get('CALIPER_EVAL_HOME', _REPO_ROOT))
     from caliper_eval import paths
 
 

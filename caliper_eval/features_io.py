@@ -7,7 +7,8 @@ import os.path as osp
 
 import numpy as np
 
-# kwcoco split files this benchmark expects under <splits_dir>/<split>/
+# the standard kwcoco split files under <splits_dir>/<split>/ (discover_role_files() also picks up any
+# other query_*.kwcoco.json present)
 SPLIT_FILES = {
     'gallery': 'gallery.kwcoco.json',
     'query_500m': 'query_500m.kwcoco.json',

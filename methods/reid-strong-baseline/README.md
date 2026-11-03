@@ -2,18 +2,23 @@
 >
 > This checkout is used for the CALIPeR ReID benchmark, for two things upstream does not cover:
 >
-> * **Zero-shot feature extraction** — `tools/extract_features.py` + `Test-kitbrc1-*.sh`
+> * **Feature extraction** — `tools/extract_features.py` + `extract_features.sh`
 > * **Finetuning on the CALIPeR ground-field corpus** — `tools/train_caliper.py`,
 >   `data/datasets/caliper_ground.py`, `configs/caliper_ground_softmax_triplet.yml`
 >
-> Both need the companion package **`caliper_reid_eval`** on `PYTHONPATH` (or `pip install -e` it).
+> Both need the `caliper_eval` package from the repository root on `PYTHONPATH` (or `pip install -e .`
+> at the repo root).
 >
-> **Read `caliper_reid_eval/CALIPER_TRAINING.md` before running anything** — it documents the corpus
+> **Read [`../../TRAINING.md`](../../TRAINING.md) before running anything** — it documents the corpus
 > rules, the sampler, and several failure modes that are silent rather than loud (identity labels,
 > shared-source dedup, partial checkpoint loads).
 >
-> One upstream file is modified: `engine/trainer.py`, fixing an ignite>=0.3 `ModelCheckpoint`
-> incompatibility that breaks `do_train` for everyone on modern ignite. See CALIPER_TRAINING.md.
+> Modified upstream files:
+>
+> * `engine/trainer.py` — ignite>=0.3 `ModelCheckpoint` API (the original call breaks `do_train` on
+>   modern ignite); keeps every periodic checkpoint, model weights only.
+> * `config/defaults.py` — `DATASETS.ROOT_DIR` reads `CALIPER_DATA_ROOT`.
+> * `data/datasets/__init__.py` — registers the `kitbrc1` dataset.
 >
 > Everything else below is the original upstream README.
 

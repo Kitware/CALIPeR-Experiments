@@ -41,8 +41,7 @@ def require_single_gpu():
     n = torch.cuda.device_count()
     if n != 1:
         raise SystemExit(
-            "Training requires one GPU. Found {} visible devices.\n"
-            "  Fix: sbatch --gres=gpu:1, or CUDA_VISIBLE_DEVICES=<n> for an interactive run."
+            "Training requires one GPU. Found {} visible devices. Set CUDA_VISIBLE_DEVICES to a single device."
             .format(n))
 
 
@@ -148,8 +147,6 @@ def main():
     ap.add_argument("--frames-per-tracklet", type=int, default=32, help="per-epoch cap; 0 = all")
     ap.add_argument("--chip-root", default="", help="override the chip root (e.g. a /dev/shm stage)")
     ap.add_argument("--seed", type=int, default=1234)
-    # This entry point predates caliper_eval.train_entry.add_caliper_args and keeps its own parser, so
-    # the synthetic flags are attached here rather than inherited.
     add_sim_args(ap)
     ap.add_argument("--stop-after", type=int, default=0,
                     help='Stop after this epoch while keeping the full learning-rate schedule.')

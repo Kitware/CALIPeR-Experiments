@@ -14,6 +14,13 @@ from config import cfg                                  # noqa: E402
 from modeling import build_model                        # noqa: E402
 from data.transforms import build_transforms            # noqa: E402
 from data.datasets.dataset_loader import ImageDataset   # noqa: E402
+
+try:
+    from caliper_eval import paths, features_io
+except ImportError:
+    _REPO_ROOT = osp.abspath(osp.join(osp.dirname(__file__), '..', '..', '..'))
+    sys.path.insert(0, os.environ.get('CALIPER_EVAL_HOME', _REPO_ROOT))
+    from caliper_eval import paths, features_io
 from caliper_eval.train_entry import load_backbone         # noqa: E402
 
 
@@ -22,13 +29,6 @@ class _StdoutLogger(object):
 
     def info(self, msg):
         print(msg, flush=True)
-
-
-try:
-    from caliper_eval import paths, features_io
-except ImportError:
-    sys.path.insert(0, osp.expanduser(os.environ.get('CALIPER_EVAL_HOME', osp.abspath(osp.join(osp.dirname(__file__), '../../../')))))
-    from caliper_eval import paths, features_io
 
 
 def extract(model, crop_paths, transforms, device, batch_size, num_workers):
@@ -56,12 +56,14 @@ def extract(model, crop_paths, transforms, device, batch_size, num_workers):
 def main():
     parser = argparse.ArgumentParser(description="BoT extract-once feature cache (shared .npz format)")
     parser.add_argument("--config_file", default="", type=str)
-    parser.add_argument("--split", default="ground_range", type=str)
+    parser.add_argument("--split", default="paperGR", type=str)
+    parser.add_argument("--dataset", default="combined_brc1_brc2", type=str,
+                        help="dataset namespace of the output dir (ground_range_sim uses kitbrc1)")
     parser.add_argument("--method", default="bot", type=str, help="method name (output namespace + provenance)")
     parser.add_argument("--source", default="market1501", type=str, help="pretraining source domain")
-    parser.add_argument("--splits-dir", default="", type=str, help="default: paths.splits_dir(split)")
+    parser.add_argument("--splits-dir", default="", type=str, help="Crop split directory (default: $REID_BENCH_ROOT/splits/<split>).")
     parser.add_argument("--out-dir", default="", type=str,
-                        help="default: paths.features_dir(method, source, split)")
+                        help="Where to save features (default: $REID_BENCH_ROOT/eval/<dataset>/<split>/<method>/<source>).")
     parser.add_argument("opts", default=None, nargs=argparse.REMAINDER)
     args = parser.parse_args()
 
@@ -76,7 +78,8 @@ def main():
     transforms = build_transforms(cfg, is_train=False)
 
     splits_dir = args.splits_dir or paths.splits_dir(args.split)
-    out_dir = args.out_dir or paths.features_dir(args.split, args.method, args.source)
+    out_dir = args.out_dir or paths.features_dir(args.split, args.method, args.source,
+                                                 dataset=args.dataset)
     os.makedirs(out_dir, exist_ok=True)
 
     # num_classes only sizes the classifier head, which is skipped on load either way.

@@ -7,7 +7,9 @@ import sys
 try:
     from caliper_eval.train_corpus import GroundFieldCorpus
 except ImportError:
-    sys.path.insert(0, osp.expanduser(os.environ.get('CALIPER_EVAL_HOME', osp.abspath(osp.join(osp.dirname(__file__), '../../../')))))
+    # Fall back to the monorepo root (the directory containing caliper_eval/).
+    _REPO_ROOT = osp.abspath(osp.join(osp.dirname(__file__), '..', '..', '..'))
+    sys.path.insert(0, os.environ.get('CALIPER_EVAL_HOME', _REPO_ROOT))
     from caliper_eval.train_corpus import GroundFieldCorpus
 
 

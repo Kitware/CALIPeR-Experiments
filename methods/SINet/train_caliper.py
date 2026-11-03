@@ -47,7 +47,7 @@ def parse():
                     help='Select validation identities at random or by the fewest 1000m samples. '
                          'thin-relaxed requires 400m and 1000m coverage. The other rules also '
                          'require 500m.')
-    ap.add_argument("--chip-root", default="", help="override the chip root (e.g. /dev/shm stage)")
+    ap.add_argument("--chip-root", default="", help="override the chip root (e.g. a RAM-disk copy)")
     ap.add_argument("--ckpt_step", type=int, default=25,
                     help='Save a checkpoint every N epochs, independently of validation.')
     ap.add_argument("--init-weight", default="",
@@ -104,12 +104,10 @@ def main():
     require_single_gpu("SINet wraps the model in nn.DataParallel unconditionally (main.py:218).")
 
     # With no holdout the val split is empty and test() dies on it. This is the argparse analogue of
-    # caliper_eval.train_entry.disable_eval_if_no_holdout -- SINet is not yacs, so it is inlined. A
-    # missing guard of exactly this kind killed a CLIP-ReID run 1h44m in.
+    # caliper_eval.train_entry.disable_eval_if_no_holdout -- SINet is not yacs, so it is inlined.
     if not args.holdout and args.eval_step > 0 and args.eval_step <= args.max_epoch:
         print_time("no --holdout, so the val split is empty: forcing --eval_step {} -> {} so "
-                   "evaluation never fires. NOTE this also gates checkpointing (main.py:243-258), "
-                   "so checkpoints now come from the max_epoch boundary only."
+                   "evaluation never fires (checkpointing is unaffected; see --ckpt_step)."
                    .format(args.eval_step, args.max_epoch + 1))
         args.eval_step = args.max_epoch + 1
 
@@ -192,8 +190,7 @@ def main():
         scheduler.step()
         last = (epoch + 1) == args.max_epoch
         # DECOUPLED, unlike upstream. main.py saves only inside the eval block, so a no-holdout run
-        # (eval disabled) would retain a single checkpoint at max_epoch -- useless given the val
-        # curves put the best epoch early.
+        # (eval disabled) would retain a single checkpoint at max_epoch.
         do_eval = bool(len(dataset.query)) and args.eval_step > 0 and \
             ((epoch + 1) % args.eval_step == 0 or last)
         do_ckpt = (epoch + 1) % args.ckpt_step == 0 or last

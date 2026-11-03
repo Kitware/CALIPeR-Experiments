@@ -11,7 +11,7 @@ def require_single_gpu(why=""):
     if n != 1:
         raise SystemExit(
             "Training requires one GPU. Found {} visible devices.{}\n"
-            "  Fix: set CUDA_VISIBLE_DEVICES=<n> before starting training."
+            "  Set CUDA_VISIBLE_DEVICES to one GPU."
             .format(n, ("\n  " + why) if why else ""))
 
 
@@ -147,10 +147,9 @@ def log_composition(logger, corpus, sampler, sim_mode=None, sim_p=None, batch_si
     else:
         say("len(sampler)={} {}".format(n, unit))
 
-    # Only assert on the exact configuration the plan pins down; a holdout run legitimately differs.
+    # Expected counts apply to the full corpus.
     if holdout:
-        say("--holdout={} set, so the corpus legitimately differs from the plan's numbers: "
-            "composition asserts skipped.".format(holdout))
+        say("Reserved {} identities for validation. Full-corpus counts do not apply.".format(holdout))
         return
     want_n = expected_epoch.get(sim_mode)
     want_ids = expected_1000m.get(sim_mode)
@@ -161,7 +160,8 @@ def log_composition(logger, corpus, sampler, sim_mode=None, sim_p=None, batch_si
         bad.append("1000m-labelled subjects is {}, expected {}".format(n1k, want_ids))
     if bad:
         raise SystemExit(
-            "refusing to train: the corpus does not match the plan for sim_mode={}.\n  {}\n"
+            "Training data do not match the expected corpus composition for "
+            "sim_mode={}.\n  {}\n"
             "  Check the training manifest and sampling options.".format(sim_mode, "\n  ".join(bad)))
     say("composition OK for sim_mode={}: {} {}/epoch, {} 1000m-labelled subjects"
         .format(sim_mode, n, unit, n1k))

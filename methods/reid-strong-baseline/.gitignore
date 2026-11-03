@@ -6,12 +6,9 @@ saved-models/
 train_imagenet.py
 .idea/
 
-# CALIPeR fork: local-only / not part of the release
+# CALIPeR fork
 .vscode/
 weights/
-tools/preprocess_caliper.py
-tools/caliper_splits.py
-tools/build_ground_range_sim.py
 
 # OS X
 .DS_Store
