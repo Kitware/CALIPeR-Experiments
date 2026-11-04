@@ -11,6 +11,7 @@ dependencies = ["numpy"]
 
 [project.optional-dependencies]
 train = ["torch"]
+fig6 = ["matplotlib"]
 
 [project.scripts]
 caliper-eval = "caliper_eval.eval_from_features:main"
@@ -20,5 +21,7 @@ license-files = ["LICENSE", "methods/README.md"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["caliper_eval*"]
+include = ["caliper_eval*", "turbulence_eval*"]
 
+[tool.setuptools.package-data]
+turbulence_eval = ["configs/*.ini", "requirements.txt", "_vendor/*LICENSE*"]

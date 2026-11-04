@@ -75,8 +75,8 @@ chosen Re-ID adapter's environment and are not bundled with the simulator.
 | Table 3 on chips | Existing v4 chip tree, `chip_index.jsonl`, canonical train/test identity partitions, and P2S assets for the three-simulator presets. |
 | Table 3 on full frames | Pre-extracted subject/camera JPEG/PNG tree and P2S assets. Collect 2's calibrated preset expects the frozen cleaned color-source pool. |
 | Figure 6 generation | V4 chip tree/index, identity partitions, and a test split with a real 400m gallery and 500m/1000m queries. The presets use pyBSM only, so P2S assets are unnecessary. |
-| Figure 6 evaluation | Completed Figure 6 generation, model adapter code, checkpoints, any auxiliary model/aligner assets, and the adapter's dependencies. |
-| Figure 6 export from saved scores | Complete, consistent `results.json` files; no image data, model adapters or checkpoints are needed for this stage. |
+| Figure 6 evaluation | Completed Figure 6 generation, the existing method extractor and its dependencies, checkpoints, and any auxiliary model/aligner assets. |
+| Figure 6 export from saved scores | Shared evaluator JSONs scored with `--fig6-generation-dir`, or original `results.json` archives; no image data or checkpoints are needed for export. |
 | Table 3 quality analysis | Completed generation with its real inputs still accessible. BRISQUE weights are required unless `--skip-brisque` is selected. P2S assets are needed only during generation. |
 
 P2S assets, the first-run BRISQUE cache and full-frame preparation are described
@@ -412,70 +412,110 @@ default to `false`, preserving their reset policy. `frames_table3_brc2_color_cal
 
 ## Figure 6 workflow: prepare, evaluate, then report
 
-Figure 6 compares Re-ID retrieval from real 1000m query tracklets with retrieval
-from 500m person chips degraded to 1000m at three pyBSM strengths: `1e-13`,
-`4e-13`, and `1e-12`. All five conditions (real 500m, real 1000m, and three
-simulations) use the same real 400m gallery. This workflow evaluates existing
-models; it does not train them. Table 3's whole-image quality comparison is a
-separate experiment.
-
-First generate a complete test dataset with the collection-specific
-[`configs/chips_fig6_brc1.ini`](configs/chips_fig6_brc1.ini) or
-[`configs/chips_fig6_brc2.ini`](configs/chips_fig6_brc2.ini), then evaluate with
-[`configs/fig6_brc1.ini`](configs/fig6_brc1.ini) or
-[`configs/fig6_brc2.ini`](configs/fig6_brc2.ini) respectively. The generic
-[`configs/chips_test.ini`](configs/chips_test.ini) also supports custom runs.
-Use `max_images = -1` for full source-tracklet coverage. The paper's main figure
-combines BRC1 and BRC2: set `collections = brc1 brc2` and explicitly configure
-the calibration profile for each collection (`brc1 = brc1`, `brc2 = brc2`).
-Selecting `brc2 = brc1` explicitly reuses the older proxy model. Generating only
-BRC1 remains supported but evaluates a different population.
-
-For the Collect 1 example below, configure
-[`configs/fig6_brc1.ini`](configs/fig6_brc1.ini) with that generation directory,
-a separate evaluation output directory, and your model adapter/checkpoint paths.
-The example contains placeholders for a BoT adapter; model implementations and
-Re-ID checkpoints are supplied separately. Use one `[model:<name>]` section per
-model and list their names under `[evaluation] models`. The five paper variants
-are `bot-market1501`, `sinet-lsvid`, `clip-reid-msmt17`, `personvit-msmt17`, and
-`sapiensid-wb12m`.
-
-Use the `brc2` generation and evaluation INIs together for Collect 2.
-For a combined run, use `chips_test.ini` and `fig6.ini`, configure both
-collections/profiles, and select `scopes = combined` (or all three scopes).
-
-Run from this package directory after installation:
+Run from the repository root with Python 3.10+. This workflow uses model
+extractors in `methods/` and the shared evaluator in `caliper_eval/`. Install the
+repository in each method's environment:
 
 ```bash
-# Inspect condition counts without importing models or creating output files.
-python -m caliper_sim.reid preview --config configs/fig6_brc1.ini
-
-# Validate frame pairing and save a frozen, image-hashed evaluation manifest.
-python -m caliper_sim.reid prepare --config configs/fig6_brc1.ini
-
-# Load configured models, encode tracklets, cache features, and score retrieval.
-python -m caliper_sim.reid evaluate --config configs/fig6_brc1.ini
-
-# Create Figure 6 and companion curves/tables from saved scores.
-python -m caliper_sim.reid report --config configs/fig6_brc1.ini
+python -m pip install -e '.[fig6]'
 ```
 
-`python -m caliper_sim.reid run --config configs/fig6_brc1.ini` runs the last three
-stages in sequence. It reuses an existing prepared manifest and resumes completed
-evaluation cells only when their fingerprints match. Preparation and reporting
-require new destination directories. To regenerate a report, use the standalone
-export command below with a fresh `--output-dir`.
+Generation additionally needs `turbulence_eval/requirements.txt`; each method
+needs its existing dependencies and released checkpoint (see the root README).
+The examples below use BoT / Market1501 first.
 
-Preparation reads `selection.json`, `chips.jsonl`, `eval/gallery.kwcoco.json`,
-and `eval/query_1000m.kwcoco.json` directly from the completed generation. Chips
-are referenced in place, without copying them into another image tree. It checks
-synthetic variant strengths, exact source-frame pairing, gallery/query separation,
-and a 400m-only gallery. Real 500m queries use exactly the selected source frames;
-real 1000m queries use the exported target pool and remain a different population.
-`scopes = combined, brc1_only, brc2_only` additionally scores each collection
-separately; each requested scope needs mated gallery/query tracklets.
+### Generate the query chips
+
+Edit dataset paths, `partition_file`, and
+`output_data_path` in [chips_fig6_combined.ini](configs/chips_fig6_combined.ini).
+It selects both collections with their own camera profiles. The BRC1 and BRC2
+presets remain available for separate collection runs. INI paths resolve relative
+to the INI file; output directories must be new.
+
+```bash
+python -m turbulence_eval.generate_synthetic_data --config turbulence_eval/configs/chips_fig6_combined.ini --preview
+python -m turbulence_eval.generate_synthetic_data --config turbulence_eval/configs/chips_fig6_combined.ini
+```
+
+The generation's `eval/` directory contains one real 400m gallery, real 500m and
+1000m queries, and three synthetic query files. The synthetic conditions use
+500m source chips degraded to 1000m at Cn² `1e-13`, `4e-13`, and `1e-12`.
+Use `max_images = -1` to preserve all source frames. Real 1000m queries remain a
+different population; simulation and real 500m share exact source frames.
+
+### Extract features
+
+Set absolute paths in the same shell. Use a new feature
+directory for each model/generation. `FIG6_GENERATION` must match the INI output.
+Pass an **absolute checkpoint path**, since its saved path is also used at scoring.
+
+```bash
+export FIG6_GENERATION="/absolute/path/to/chips_fig6_combined"
+export FIG6_FEATURES="/absolute/path/to/fig6/bot-market1501"
+export FIG6_WEIGHT="/absolute/path/to/market_resnet50_model_120_rank1_945.pth"
+
+(
+  cd methods/reid-strong-baseline
+  python tools/extract_features.py --config_file configs/softmax_triplet_with_center.yml \
+    --split fig6 --source market1501 \
+    --splits-dir "$FIG6_GENERATION/eval" --out-dir "$FIG6_FEATURES" \
+    MODEL.PRETRAIN_CHOICE self TEST.NECK_FEAT after TEST.WEIGHT "$FIG6_WEIGHT"
+)
+```
+
+For the other four paper models, use their existing Python extractors with the
+same `--splits-dir` and separate `--out-dir` values. Keep their existing transforms,
+checkpoint options and SINet sequence handling. Model labels for export are
+`bot-market1501`, `sinet-lsvid`, `clip-reid-msmt17`, `personvit-msmt17`, and
+`sapiensid-wb12m` (the saved `method-source` values).
+
+### Score with the shared evaluator
+
+Score the features saved by the extractor.
+
+```bash
+python -m caliper_eval.eval_from_features --features-dir "$FIG6_FEATURES" \
+  --pooling video --pool-op mean --metric cosine --max-per-video 0 \
+  --fig6-generation-dir "$FIG6_GENERATION"
+```
+
+Keep the images and checkpoint available when scoring. `--fig6-generation-dir` checks the
+frame paths, identities, and tracklet grouping across all five query conditions. The output
+records hashes for the generation, gallery, feature caches, and checkpoint file present at
+scoring time.
+
+The `caliper-features-fig6-v1` protocol averages raw features before cosine normalization.
+It uses the shared evaluator’s tie ordering and excludes queries without a gallery match.
+
+### Export the figure from saved results
+
+One model is enough for a first run;
+add more `MODEL=JSON` entries after `--eval-results` to include the other models.
+This stage needs only the saved JSON files and Matplotlib.
+
+```bash
+python -m turbulence_eval.export_fig6 \
+  --eval-results "bot-market1501=$FIG6_FEATURES/eval_mean_cosine.json" \
+  --scopes combined --output-dir /absolute/path/to/new-fig6-report
+```
+
+Outputs include `sim_severity_diff_1000m.{pdf,png,svg}`, companion CMC plots,
+CSV/Markdown summaries, and provenance. The main plot is
+`CMC(simulated) - CMC(real 1000m)` at ranks 1–20. All models must use the same
+generation/gallery. For a single-collection generation, use `--scopes brc1_only`
+or `--scopes brc2_only`; a combined result cannot be relabeled as one collection.
+
+Existing unannotated feature caches can be rescored with the flag above.
+Original saved results still work with `--results-dir /path/to/results_synthetic`
+in place of `--eval-results`.
+
+For custom model adapters, use `reid.py`. Its `caliper-reid-v1` protocol normalizes frame features before averaging.
+Results from different protocols must be reported separately.
 
 ### Model adapter contract
+
+To use a custom encoder with `reid.py`, supply an INI in the format described in
+`reid_config.py`.
 
 `factory = my_reid_models.bot:load_encoder` imports an adapter function from an
 installed Python package, or from the optional `python_path` directory. The
@@ -549,7 +589,7 @@ CMC differences are probabilities.
 Export reports without loading models or accessing images:
 
 ```bash
-python -m caliper_sim.export_fig6 \
+python -m turbulence_eval.export_fig6 \
   --results-dir /path/to/saved/results \
   --output-dir /tmp/new-fig6-report \
   --scopes combined
@@ -598,7 +638,7 @@ configurable; set the paths in the chip examples to your dataset and output dire
 | `configs/frames_table3_brc2.ini` | Current calibrated BRC2 color-source full-frame quality comparison |
 | `configs/chips_fig6_brc1.ini` | BRC1 Figure 6 test-chip generation, 500m → 1000m, three pyBSM severities |
 | `configs/chips_fig6_brc2.ini` | BRC2 Figure 6 test-chip generation with BRC2 optics |
-| `configs/fig6_brc1.ini` / `configs/fig6_brc2.ini` | Matching Figure 6 evaluation and reporting |
+| `configs/chips_fig6_combined.ini` | Combined BRC1+BRC2 Figure 6 test-chip generation with collection-specific optics |
 | `configs/images.ini` | Flat image directory; switch to `subject-tree` for the existing subject layout |
 | `configs/table3.ini` | Original image-based Table 3 generation and measurement protocol |
 | `configs/frames_table3_brc2_color_calibrated.ini` | Compatibility name for `frames_table3_brc2.ini` |

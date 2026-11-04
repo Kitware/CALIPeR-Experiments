@@ -103,7 +103,8 @@ def evaluate(qF, q_pids, q_camids, gF, g_pids, g_camids, metric, cam_exclusion):
     dm = distance(qF, gF, metric)
     cmc, mAP, dropped = eval_func(dm, q_pids, g_pids, q_camids, g_camids, cam_exclusion=cam_exclusion)
     return dict(n_query=int(qF.shape[0]), n_gallery=int(gF.shape[0]), mAP=float(mAP),
-                rank1=float(cmc[0]), rank5=float(cmc[4]), rank10=float(cmc[9]),
+                rank1=float(cmc[0]), rank5=float(cmc[min(4, len(cmc)-1)]),
+                rank10=float(cmc[min(9, len(cmc)-1)]),
                 dropped_queries=int(dropped),
                 cmc=[float(x) for x in cmc])   # full CMC curve (up to max_rank) for plotting
 
@@ -129,11 +130,21 @@ def main():
                          'entries that share both the query identity and its camera.')
     ap.add_argument('--out', default='',
                     help='Path for the score JSON. By default it is saved beside the features.')
+    ap.add_argument('--fig6-generation-dir', help='For Figure 6, give the directory containing the generated real and simulated query sets.')
     args = ap.parse_args()
+
+    if args.fig6_generation_dir and (args.pooling != ['video'] or args.pool_op != 'mean'
+            or args.metric != 'cosine' or args.cam_exclusion != 'none'
+            or args.max_per_video != 0 or args.min_track_crops != 0):
+        ap.error('Figure 6 requires --pooling video --pool-op mean --metric cosine, no filtering or camera exclusion')
 
     g_path, q_paths = discover_roles(args.features_dir)
     g = load_npz(g_path)
     queries = [load_npz(p) for p in q_paths]
+    fig6 = None
+    if args.fig6_generation_dir:
+        from turbulence_eval.shared_fig6 import evaluation_provenance
+        fig6 = evaluation_provenance(args.fig6_generation_dir, [g_path] + q_paths, [g] + queries)
 
     # Video-native caches require video pooling.
     required = str(g['pooling']) if 'pooling' in g else ''
@@ -175,6 +186,8 @@ def main():
     summary = dict(pool_op=args.pool_op, metric=args.metric, min_track_crops=args.min_track_crops,
                    max_per_video=args.max_per_video, cam_exclusion=args.cam_exclusion,
                    results=results, **prov)
+    if fig6 is not None:
+        summary['fig6'] = fig6
     # the default (cam_exclusion='none') output is eval_<pool_op>_<metric>.json; a 'market' run gets a
     # distinguishing suffix so both can live in the same features dir.
     suffix = '' if args.cam_exclusion == 'none' else '_' + args.cam_exclusion

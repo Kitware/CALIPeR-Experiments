@@ -1,4 +1,4 @@
-"""Export Figure 6 from standalone or original v4-sim1 saved Re-ID results."""
+"""Export Figure 6 from shared, standalone or original v4-sim1 saved Re-ID results."""
 
 import argparse
 from collections import Counter
@@ -130,7 +130,8 @@ def _figures(cells, models, scope, output, meta, max_rank):
         plt.close(fig)
 
     def curve(model, condition):
-        return cmc_curve(cells[(scope, model, condition)]["ranks"], max_rank)
+        cell = cells[(scope, model, condition)]
+        return cell["curve"][:max_rank] if "curve" in cell else cmc_curve(cell["ranks"], max_rank)
 
     fig, ax = plt.subplots(figsize=(5, 2.8))
     for model in models:
@@ -162,13 +163,18 @@ def _figures(cells, models, scope, output, meta, max_rank):
     return written
 
 
-def export_results(results_dir, output_dir, *, scopes=("combined",), models=None, max_rank=20, figures=True):
+def export_results(results_dir, output_dir, *, scopes=("combined",), models=None, max_rank=20, figures=True,
+                   eval_results=None):
     output = Path(output_dir).resolve()
     if output.exists():
         raise FileExistsError(f"Report output directory already exists: {output}")
     if max_rank < 2:
         raise ValueError("Figure export requires max_rank >= 2")
-    cells, models = load_cells(results_dir, scopes, models)
+    if eval_results is not None:
+        from .shared_fig6 import load_evaluations
+        cells, models = load_evaluations(eval_results, scopes, max_rank)
+    else:
+        cells, models = load_cells(results_dir, scopes, models)
     meta = _metadata(cells, models)
     output.mkdir(parents=True)
     written = []
@@ -194,14 +200,18 @@ def export_results(results_dir, output_dir, *, scopes=("combined",), models=None
         written.append(str(path))
         if figures:
             written += _figures(cells, models, scope, output, meta, max_rank)
-    provenance = dict(results_dir=str(Path(results_dir).resolve()), scopes=list(scopes), models=models,
-                      protocol=next(iter(cells.values()))["provenance"]["protocol_version"], max_rank=max_rank,
-                      pairing="Exact source frames checked at preparation; query tracklet IDs checked at export."
-                      if next(iter(cells.values()))["provenance"]["protocol_version"] == PROTOCOL else
-                      "Legacy exporter contract: identity-count pairing; source-frame pairing belongs to the upstream importer.",
+    first = next(iter(cells.values()))["provenance"]
+    provenance = dict(results_dir=str(Path(results_dir).resolve()) if results_dir is not None else None,
+                      scopes=list(scopes), models=models,
+                      protocol=first["protocol_version"], max_rank=max_rank,
+                      pairing=first.get("pairing") or ("Exact source frames checked at preparation; query tracklet IDs checked at export."
+                      if first["protocol_version"] == PROTOCOL else
+                      "Legacy exporter contract: identity-count pairing; source-frame pairing belongs to the upstream importer."),
                       cells={"/".join(key): dict(path=str(c["path"].resolve()), sha256=sha256_file(c["path"]))
                              for key, c in cells.items()})
     path = output / "sim_severity_provenance.json"
+    if eval_results is not None:
+        provenance["evaluations"] = {m: cells[(scopes[0], m, "real-500m")]["provenance"] for m in models}
     write_json(path, provenance)
     written.append(str(path))
     for path in written:
@@ -211,16 +221,29 @@ def export_results(results_dir, output_dir, *, scopes=("combined",), models=None
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--results-dir", required=True, type=Path)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--results-dir", type=Path)
+    source.add_argument("--eval-results", nargs="+", metavar="MODEL=JSON",
+                        help="Shared evaluator JSONs scored with --fig6-generation-dir")
     parser.add_argument("--output-dir", required=True, type=Path, help="New directory; existing reports are refused")
     parser.add_argument("--scopes", default="combined", help="Comma-separated combined,brc1_only,brc2_only")
     parser.add_argument("--models", help="Comma-separated model names; default: discover complete cells")
     parser.add_argument("--max-rank", type=int, default=20)
     parser.add_argument("--no-figures", action="store_true")
     args = parser.parse_args()
+    evaluations = None
+    if args.eval_results:
+        evaluations = {}
+        for item in args.eval_results:
+            model, separator, filename = item.partition("=")
+            if not separator or not model or not filename or model in evaluations:
+                parser.error("--eval-results expects unique MODEL=JSON entries")
+            evaluations[model] = filename
+        if args.models:
+            parser.error("--models applies to --results-dir; --eval-results names its models explicitly")
     export_results(args.results_dir, args.output_dir, scopes=args.scopes.split(","),
                    models=args.models.split(",") if args.models else None,
-                   max_rank=args.max_rank, figures=not args.no_figures)
+                   max_rank=args.max_rank, figures=not args.no_figures, eval_results=evaluations)
 
 
 if __name__ == "__main__":

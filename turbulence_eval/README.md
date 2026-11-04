@@ -9,16 +9,16 @@ Use these workflows for the experiments in
 - **Table 3:** compare simulated and real imagery using image-quality metrics,
   with either person chips or full frames.
 - **Figure 6:** evaluate Re-ID retrieval on real and simulated person chips
-  using your model adapters and checkpoints.
+  using the existing model extractors and checkpoints.
 
 ## Install
 
-Run from this repository directory with Python 3.10:
+Run from the repository root with Python 3.10:
 
 ```bash
 python3.10 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt -e .
+python -m pip install -r turbulence_eval/requirements.txt -e .
 python -m pip check
 ```
 
@@ -40,9 +40,9 @@ Choose one base config and use it for both generation and analysis:
 For example:
 
 ```bash
-python -m caliper_sim.generate_synthetic_data --config configs/chips_table3_brc1.ini --preview
-python -m caliper_sim.generate_synthetic_data --config configs/chips_table3_brc1.ini
-python -m caliper_sim.create_table3 --config configs/chips_table3_brc1.ini
+python -m turbulence_eval.generate_synthetic_data --config turbulence_eval/configs/chips_table3_brc1.ini --preview
+python -m turbulence_eval.generate_synthetic_data --config turbulence_eval/configs/chips_table3_brc1.ini
+python -m turbulence_eval.create_table3 --config turbulence_eval/configs/chips_table3_brc1.ini
 ```
 
 The preview checks the selection without generating images. Generation saves the
@@ -61,28 +61,37 @@ for input layouts, settings and repeated analysis runs.
 
 ## Figure 6
 
-Figure 6 uses **person chips only**, with separate generation and evaluation
-configs for each collection:
+Figure 6 compares Re-ID retrieval on real and simulated person chips using a
+fixed real 400m gallery. Choose a generation config:
 
-| Collection | Generation | Evaluation |
-|---|---|---|
-| Collect 1 | [chips_fig6_brc1.ini](configs/chips_fig6_brc1.ini) | [fig6_brc1.ini](configs/fig6_brc1.ini) |
-| Collect 2 | [chips_fig6_brc2.ini](configs/chips_fig6_brc2.ini) | [fig6_brc2.ini](configs/fig6_brc2.ini) |
+| Collection | Person chips |
+|---|---|
+| Collect 1 | [chips_fig6_brc1.ini](configs/chips_fig6_brc1.ini) |
+| Collect 2 | [chips_fig6_brc2.ini](configs/chips_fig6_brc2.ini) |
+| Both collections | [chips_fig6_combined.ini](configs/chips_fig6_combined.ini) |
 
-Set your model adapter and checkpoint paths in the evaluation config, then run:
+For example, generate the combined-collection chips:
 
 ```bash
-python -m caliper_sim.generate_synthetic_data --config configs/chips_fig6_brc1.ini
-python -m caliper_sim.reid preview --config configs/fig6_brc1.ini
-python -m caliper_sim.reid run --config configs/fig6_brc1.ini
+python -m turbulence_eval.generate_synthetic_data --config turbulence_eval/configs/chips_fig6_combined.ini --preview
+python -m turbulence_eval.generate_synthetic_data --config turbulence_eval/configs/chips_fig6_combined.ini
 ```
 
-Replace `brc1` with `brc2` for Collect 2. Generation simulates 500m queries at
-three turbulence strengths; evaluation compares them with real queries using a
-fixed 400m gallery. It saves retrieval scores, curves and summary tables.
-This workflow evaluates existing models. See the
+Use a model's extractor in `methods/` on the generated `eval/` directory, then
+score its saved features with the shared `caliper_eval` evaluator and export the
+figure (replace the example paths):
+
+```bash
+python -m caliper_eval.eval_from_features --features-dir /path/to/features --pooling video --fig6-generation-dir /path/to/chips_fig6_combined
+python -m turbulence_eval.export_fig6 --eval-results bot-market1501=/path/to/features/eval_mean_cosine.json --scopes combined --output-dir /path/to/new-fig6-report
+```
+
+Generation degrades 500m chips to 1000m at three turbulence strengths. Evaluation
+compares their retrieval curves with real queries; export saves PDF/PNG/SVG
+figures and summary tables. See the
 [Figure 6 workflow](WORKFLOWS.md#figure-6-workflow-prepare-evaluate-then-report)
-for individual stages, combined-collection runs and the model adapter contract.
+for setup, feature-extraction commands, additional models, collection scopes,
+and saved-result exports.
 
 ## Detailed guide
 

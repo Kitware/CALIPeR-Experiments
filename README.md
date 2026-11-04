@@ -5,15 +5,9 @@ Imagery for Person Re-identification."**
 
 ## Layout
 
-- **`caliper_eval/`**: shared, method-agnostic components for the CALIPeR ReID benchmark. Every method
-  under `methods/` imports this package, so the parts that must be identical across methods (the
-  evaluation metric, the feature-cache format, the training corpus and sampler) are written once.
-- **`methods/`**: one subdirectory per method. Each is a fork of its upstream repository with CALIPeR
-  integration added on top, keeping its upstream README and included license notices.
-  [`methods/UPSTREAM.md`](methods/UPSTREAM.md)
-  lists the upstream commit each fork is based on and the files we changed:
-  `reid-strong-baseline` (BoT), `SINet`, `CLIP-ReID`, `PersonViT` (fine-tuned and zero-shot), and
-  `X-TFCLIP`, `GEFF` (CAL), `sapiensid` (zero-shot only).
+- `caliper_eval/` reads splits and features, scores retrieval, and supplies the training corpus and samplers.
+- `turbulence_eval/` generates simulated images and compares them with real images for [Table 3 and Figure 6](turbulence_eval/README.md).
+- `methods/` contains the seven method implementations. BoT, SINet, CLIP-ReID, and PersonViT support fine-tuning. CAL, X-TFCLIP, and SapiensID support zero-shot evaluation. See the [upstream revisions](methods/UPSTREAM.md).
 
 ## Results
 

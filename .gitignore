@@ -48,6 +48,7 @@ htmlcov/
 # Local datasets and generated experiment artifacts
 # Keep dataset loaders and other source code outside these root directories.
 /data/
+/turbulence_eval/data/
 /datasets/
 /checkpoints/
 /outputs/
