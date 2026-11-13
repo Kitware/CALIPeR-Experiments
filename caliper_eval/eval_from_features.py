@@ -13,6 +13,7 @@ import numpy as np
 # allow running as a plain script (python .../eval_from_features.py) as well as `-m caliper_eval...`
 sys.path.insert(0, osp.dirname(osp.dirname(osp.abspath(__file__))))
 from caliper_eval.features_io import load_npz          # noqa: E402
+from caliper_eval.validation import atomic_json, validate_caches
 from caliper_eval.eval_reid import eval_func           # noqa: E402
 
 ALL_POOLINGS = ['image', 'video']
@@ -58,7 +59,9 @@ def subsample_per_video(d, keep, max_per_video):
     for idx in by_video.values():
         idx = sorted(idx, key=lambda i: frame[i])
         n = len(idx)
-        if n > max_per_video:
+        if max_per_video == 1:
+            idx = idx[:1]
+        elif n > max_per_video:
             sel = sorted({round(j * (n - 1) / (max_per_video - 1)) for j in range(max_per_video)})
             idx = [idx[s] for s in sel]
         new_keep[idx] = True
@@ -132,6 +135,9 @@ def main():
                     help='Path for the score JSON. By default it is saved beside the features.')
     ap.add_argument('--fig6-generation-dir', help='For Figure 6, give the directory containing the generated real and simulated query sets.')
     args = ap.parse_args()
+    if args.min_track_crops < 0 or args.max_per_video < 0:
+        ap.error('frame filters must be nonnegative (0 means no filtering)')
+    args.pooling = [p for p in ALL_POOLINGS if p in args.pooling]
 
     if args.fig6_generation_dir and sys.version_info < (3, 10):
         ap.error('--fig6-generation-dir requires Python 3.10 or newer')
@@ -142,8 +148,12 @@ def main():
         ap.error('Figure 6 requires --pooling video --pool-op mean --metric cosine, no filtering or camera exclusion')
 
     g_path, q_paths = discover_roles(args.features_dir)
-    g = load_npz(g_path)
-    queries = [load_npz(p) for p in q_paths]
+    try:
+        g = load_npz(g_path)
+        queries = [load_npz(p) for p in q_paths]
+        validate_caches([g] + queries, args.pooling)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        ap.error(str(exc))
     fig6 = None
     if args.fig6_generation_dir:
         from turbulence_eval.shared_fig6 import evaluation_provenance
@@ -191,12 +201,15 @@ def main():
                    results=results, **prov)
     if fig6 is not None:
         summary['fig6'] = fig6
-    # the default (cam_exclusion='none') output is eval_<pool_op>_<metric>.json; a 'market' run gets a
-    # distinguishing suffix so both can live in the same features dir.
-    suffix = '' if args.cam_exclusion == 'none' else '_' + args.cam_exclusion
-    out = args.out or osp.join(args.features_dir, 'eval_{}_{}{}.json'.format(args.pool_op, args.metric, suffix))
-    with open(out, 'w') as f:
-        json.dump(summary, f, indent=2)
+    canonical = (args.pooling == ['video'] and args.pool_op == 'mean'
+                 and args.metric == 'cosine' and args.cam_exclusion == 'none'
+                 and args.min_track_crops == 0 and args.max_per_video == 0)
+    name = ('eval_mean_cosine.json' if canonical else
+            'eval_{}_{}_{}_cam-{}_min-{}_max-{}.json'.format(
+                '-'.join(args.pooling), args.pool_op, args.metric, args.cam_exclusion,
+                args.min_track_crops, args.max_per_video))
+    out = args.out or osp.join(args.features_dir, name)
+    atomic_json(out, summary)
     print("\nwrote", out)
 
 

@@ -47,7 +47,10 @@ def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50, cam_excl
         cmc = orig_cmc.cumsum()
         cmc[cmc > 1] = 1
 
-        all_cmc.append(cmc[:max_rank])
+        curve = cmc[:max_rank]
+        if len(curve) < max_rank:
+            curve = np.pad(curve, (0, max_rank - len(curve)), constant_values=curve[-1])
+        all_cmc.append(curve)
         num_valid_q += 1.
 
         # compute average precision

@@ -86,7 +86,7 @@ def extract_tracklet_feat(model, clips, max_clip_per_batch, device):
 
 
 def load_model(arch, weight, seq_len, device):
-    ck = torch.load(weight, map_location='cpu', weights_only=False)
+    ck = torch.load(weight, map_location='cpu', weights_only=True)
     sd = ck['state_dict'] if isinstance(ck, dict) and 'state_dict' in ck else ck
     sd = {k.replace('module.', ''): v for k, v in sd.items()}
     num_classes = sd['classifier.weight'].shape[0]      # derive head size so the strict load matches
@@ -100,13 +100,8 @@ def load_model(arch, weight, seq_len, device):
     finally:
         tvm.resnet50 = _orig
 
-    missing, unexpected = model.load_state_dict(sd, strict=False)
-    missing = [k for k in missing if not k.startswith('projection')]   # projection head unused at inference
-    if missing or unexpected:
-        print("WARNING load mismatch: {} missing, {} unexpected (e.g. missing {}, unexpected {})".format(
-            len(missing), len(unexpected), missing[:4], unexpected[:4]))
-    else:
-        print("load: all {} tensors matched (num_classes={})".format(len(sd), num_classes))
+    from caliper_eval.checkpoints import load_inference_weights
+    load_inference_weights(model, weight, unused=('projection',))
     return model.to(device).eval(), num_classes
 
 

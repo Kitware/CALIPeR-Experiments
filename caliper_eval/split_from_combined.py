@@ -3,6 +3,9 @@ import argparse
 import json
 import os
 import os.path as osp
+from pathlib import Path
+import tempfile
+import shutil
 from collections import OrderedDict
 
 # Root of the released CALIPeR dataset tree (splits/, reid-chips/, ...). Override with CALIPER_DATA_ROOT.
@@ -100,7 +103,10 @@ def main():
 
     idx = load_chip_index(args.chip_index)
     split = json.load(open(args.split_json))
-    os.makedirs(args.out_dir, exist_ok=True)
+    destination = Path(args.out_dir).absolute()
+    if destination.is_symlink() or (destination.exists() and
+            (not destination.is_dir() or any(destination.iterdir()))):
+        ap.error('--out-dir must be absent or empty; use a new directory for a changed split')
 
     subject_ids, camera_ids = OrderedDict(), OrderedDict()
     docs, written = [], []
@@ -155,12 +161,22 @@ def main():
 
     finalize_subjects(docs, subject_ids)
 
-    for path, doc, role, n_listed, missing in written:
-        with open(path, 'w') as f:
-            json.dump(doc, f)
-        print("[{}] {} videos listed, {} unusable/absent -> {} videos, {} crops, {} subjects\n    {}".format(
-            role, n_listed, missing, len(doc['videos']), len(doc['images']),
-            len({t['subject_id'] for t in doc['tracks']}), path))
+    if not docs or not any(Path(path).name.startswith('query_') for path, *_ in written):
+        ap.error('no query roles remain after input selection')
+    if any(not doc['images'] for doc in docs):
+        ap.error('every role must contain usable crops')
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = Path(tempfile.mkdtemp(prefix='.caliper-split-', dir=str(destination.parent)))
+    try:
+        for path, doc, role, n_listed, missing in written:
+            with (temporary / Path(path).name).open('w') as stream:
+                json.dump(doc, stream)
+            print('[{}] {} videos, {} crops -> {}'.format(role, len(doc['videos']), len(doc['images']), path))
+        # rename refuses a destination that became nonempty during generation.
+        os.rename(str(temporary), str(destination))
+    finally:
+        if temporary.exists():
+            shutil.rmtree(str(temporary))
     print("subjects registry: {} ids shared across both roles; {} distinct physical cameras".format(
         len(subject_ids), len(camera_ids)))
 

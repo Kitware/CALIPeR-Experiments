@@ -1,4 +1,12 @@
 #!/bin/bash
+set -euo pipefail
+FORCE=()
+case "${1:-}" in
+    "") ;;
+    --force) FORCE=(--force) ;;
+    *) echo "Usage: $0 [--force]" >&2; exit 2 ;;
+esac
+if (( $# > 1 )); then echo "Usage: $0 [--force]" >&2; exit 2; fi
 # Extract X-TFCLIP features for a CALIPeR split and score gallery retrieval.
 # Set SPLIT to the crop split directory name. Use --force to rebuild features.
 # Set RUN_NATIVE_ABLATION=1 to also score the native single-clip setting. Select a CUDA device and cache ViT-B-16.pt under ~/.cache/clip.
@@ -30,19 +38,12 @@ for combo in "${COMBOS[@]}"; do
     echo "############################################################"
     echo "# X-TFCLIP  source=$SOURCE  weight=$WEIGHT  max_clips=$MAX_CLIPS  cam_id=$CAM_ID  split=$SPLIT  dataset=$DATASET"
     echo "############################################################"
-    if [ ! -f "$WEIGHT" ]; then
-        echo "  WEIGHT not found: $WEIGHT  -- skipping $SOURCE"; continue
-    fi
-    FEATURES_DIR=$("$PY" -c "from caliper_eval import paths; print(paths.features_dir('$SPLIT','$METHOD','$SOURCE',dataset='$DATASET'))")
+    FEATURES_DIR=$("$PY" -c 'import sys; from caliper_eval import paths; print(paths.features_dir(*sys.argv[1:4], dataset=sys.argv[4]))' "$SPLIT" "$METHOD" "$SOURCE" "$DATASET")
 
-    if [ "$1" == "--force" ] || ! ls "$FEATURES_DIR"/gallery_*.npz >/dev/null 2>&1; then
-        echo "== Step 1: extracting X-TFCLIP tracklet features (GPU) -> $FEATURES_DIR =="
+    "$PY" -m caliper_eval.extraction --method "$METHOD" --source "$SOURCE" \
+        --split "$SPLIT" --dataset "$DATASET" --weight "$WEIGHT" "${FORCE[@]}" -- \
         "$PY" extract_caliper_features.py --weight "$WEIGHT" --source "$SOURCE" --split "$SPLIT" \
-            --dataset "$DATASET" --max-clips "$MAX_CLIPS" --cam-id "$CAM_ID" --out-dir "$FEATURES_DIR" \
-            || { echo "extract FAILED for $SOURCE"; continue; }
-    else
-        echo "== Step 1: skipped (cache exists in $FEATURES_DIR; pass --force to re-extract) =="
-    fi
+            --dataset "$DATASET" --max-clips "$MAX_CLIPS" --cam-id "$CAM_ID" --out-dir '{output}'
 
     echo
     echo "== Retrieval scores (pooling=video; metric=$METRIC; per range + combined; max-per-video=$MAX_PER_VIDEO) =="
@@ -52,12 +53,15 @@ for combo in "${COMBOS[@]}"; do
 
     # Optional ablation: X-TFCLIP's NATIVE protocol -- one 8-frame rrs_test sample for the whole tracklet
     # (their published eval).
-    if [ "$RUN_NATIVE_ABLATION" == "1" ]; then
-        NATIVE_DIR="${FEATURES_DIR}-rrs1"
+    if [ "${RUN_NATIVE_ABLATION:-0}" == "1" ]; then
+        # Keep a different extraction protocol outside published-result discovery.
+        NATIVE_DIR=$("$PY" -c 'import os, sys; from caliper_eval import paths; print(os.path.join(paths.ROOT, "ablations", *sys.argv[1:], "rrs1"))' "$DATASET" "$SPLIT" "$METHOD" "$SOURCE")
         echo "== Ablation: native single-clip rrs_test -> $NATIVE_DIR =="
-        "$PY" extract_caliper_features.py --weight "$WEIGHT" --source "$SOURCE" --split "$SPLIT" \
-            --dataset "$DATASET" --max-clips 1 --cam-id "$CAM_ID" --out-dir "$NATIVE_DIR" \
-            && "$PY" -m caliper_eval.eval_from_features --features-dir "$NATIVE_DIR" \
+        "$PY" -m caliper_eval.extraction --method "$METHOD" --source "$SOURCE" \
+            --weight "$WEIGHT" --split "$SPLIT" --dataset "$DATASET" --output-dir "$NATIVE_DIR" "${FORCE[@]}" -- \
+            "$PY" extract_caliper_features.py --weight "$WEIGHT" --source "$SOURCE" --split "$SPLIT" \
+            --dataset "$DATASET" --max-clips 1 --cam-id "$CAM_ID" --out-dir '{output}'
+        "$PY" -m caliper_eval.eval_from_features --features-dir "$NATIVE_DIR" \
                    --pooling video --metric "$METRIC" --max-per-video "$MAX_PER_VIDEO"
         echo
     fi

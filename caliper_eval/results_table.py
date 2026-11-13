@@ -6,6 +6,12 @@ import glob
 import json
 import os
 import os.path as osp
+import math
+import sys
+import tempfile
+from pathlib import Path
+
+from caliper_eval.validation import published_protocol
 
 from caliper_eval import paths
 
@@ -117,10 +123,41 @@ def main():
     E = osp.join(paths.ROOT, 'eval')
     out = args.out or osp.join(E, 'RESULTS.md')
 
-    cells = collections.defaultdict(dict)       # split -> combo -> results
-    for f in glob.glob(osp.join(E, '*', '*', '*', '*', 'eval_*.json')):
-        p = f.split(osp.sep)
-        cells['{}/{}'.format(p[-5], p[-4])]['{}/{}'.format(p[-3], p[-2])] = json.load(open(f))['results']['video']
+    cells = collections.defaultdict(dict)
+    selected, excluded = {}, collections.defaultdict(list)
+    for f in sorted(glob.glob(osp.join(E, '*', '*', '*', '*', 'eval_*.json'))):
+        p = Path(f).parts
+        split, combo = '/'.join(p[-5:-3]), '/'.join(p[-3:-1])
+        if split not in KNOWN:
+            continue
+        try:
+            with open(f, encoding='utf-8') as stream:
+                result = json.load(stream)
+            if not published_protocol(result):
+                excluded[(split, combo)].append(f)
+                continue
+            key = (split, combo)
+            if key in selected:
+                raise ValueError('ambiguous published results: {} and {}; keep one evaluation per method/source'.format(selected[key], f))
+            if result.get('method') != p[-3] or result.get('source') != p[-2] or result.get('split') != p[-4]:
+                raise ValueError('result metadata disagrees with its benchmark directory: ' + f)
+            values = result['results']['video']
+            expected = set(query_tokens(split))
+            if not expected or set(values) != expected | {'combined'}:
+                raise ValueError('query columns disagree with current split files: ' + f)
+            for metrics in values.values():
+                for name in ('mAP', 'rank1'):
+                    value = metrics[name]
+                    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1:
+                        raise ValueError('invalid {} in {}'.format(name, f))
+            selected[key] = f
+            cells[split][combo] = values
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+            ap.error(str(exc))
+    for key, filenames in excluded.items():
+        if key not in selected:
+            ap.error('no published-protocol video evaluation for {}/{}; rescore with --pooling video --pool-op mean --metric cosine --cam-exclusion none --min-track-crops 0 --max-per-video 0'.format(*key))
+        print('excluded {} incompatible evaluation variant(s) for {}/{}'.format(len(filenames), *key), file=sys.stderr)
     # Include known splits with manifests, even before scores are saved.
     metas = {s: split_meta(s, train_ids) for s in KNOWN}
     order = [s for s in KNOWN if metas.get(s)]
@@ -200,7 +237,15 @@ def main():
           "- **Ground-range manifests:** `test_ground-range_combined_paperGR.json` exists in both "
           "`combined_brc1_brc2_test/` (170 ids, 0 training) and `combined_brc1_brc2/` (365 gallery ids, "
           "195 training). Only the `_test` one is used here.", ""]
-    open(out, 'w').write("\n".join(L))
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=osp.dirname(osp.abspath(out)), delete=False) as stream:
+            temporary = stream.name
+            stream.write("\n".join(L))
+        os.replace(temporary, out)
+    finally:
+        if temporary and osp.exists(temporary):
+            os.unlink(temporary)
     print("wrote {} ({} splits, {} method/checkpoint pairs)".format(out, len(order), len(combos)))
 
 

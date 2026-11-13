@@ -1,4 +1,5 @@
 import os
+from completion import inputs, finish
 import pyrootutils
 root = pyrootutils.setup_root(
     search_from=__file__,
@@ -88,10 +89,7 @@ class ParquetDataset(Dataset):
         return len(self.dataframe)
 
     def __getitem__(self, idx):
-        try:
-            return self.read_row(self.dataframe.iloc[idx])
-        except:
-            return self.return_dummy()
+        return self.read_row(self.dataframe.iloc[idx])
 
     def read_row(self, row):
         img_data = row['jpg']
@@ -187,7 +185,10 @@ if __name__ == '__main__':
     start = time.time()
     args = parser.parse_args()
     # get all parquet files
+    source_hashes = inputs(args.parquet_dir)
     files = get_all_files(args.parquet_dir, extension_list=['.parquet'], sort=True)
+    if not files:
+        raise ValueError('No parquet inputs; refusing to mark extraction complete')
 
     fabric = Fabric(precision='32-true',
                     loggers=[],
@@ -221,10 +222,13 @@ if __name__ == '__main__':
     model.to(fabric.device)
 
     n = 0
+    processed = expected = 0
     for file_idx, file in enumerate(files):
         print("Loading", file)
         df = pd.read_parquet(file)
-        filtered_df = df.dropna(subset=['jpg'])
+        if df['jpg'].isna().any():
+            raise ValueError('Missing image rows; retaining source for repair')
+        filtered_df = df
         filtered_df.index = range(len(filtered_df))
 
         dataset = ParquetDataset(filtered_df)
@@ -236,13 +240,12 @@ if __name__ == '__main__':
                                                           # collate_fn=list_collate_fn)
                                                           )
 
-        batch = next(iter(dataloader))
-        images, labels, indices = batch
-        print('Data loaded')
+        expected += (len(dataset) + fabric.world_size - 1) // fabric.world_size
 
         for idx, batch in tqdm(enumerate(dataloader), total=len(dataloader), desc=f'Processing {file_idx}/{len(files)}',
                                disable=local_rank != 0):
             images, labels, indices = batch
+            processed += len(images)
             unnorm_images_rgb = (images.to(fabric.device) * 0.5 + 0.5)
             results = model(unnorm_images_rgb, device=fabric.device, verbose=False)
 
@@ -278,11 +281,11 @@ if __name__ == '__main__':
                     n += 1
 
 
-    # save a done.txt file
-    with open(os.path.join(save_dir, 'done.txt'), 'w') as f:
-        f.write('done\n')
-
-    # close files
+    # Completion is recorded only after every output stream closes successfully.
     body_kp_writer.close()
     bbox_writer.close()
+    confidence_writer.close()
     writer.close()
+    finish(save_dir, source_hashes, expected, processed, n)
+    with open(os.path.join(save_dir, 'done.txt'), 'w') as stream:
+        stream.write('done\n')

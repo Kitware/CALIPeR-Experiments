@@ -1,82 +1,41 @@
 #!/bin/bash
-
-# Usage: bash run.sh [--delete]
-
-# Check if WEBBODY_DATA_ROOT is set
-if [ -z "$WEBBODY_DATA_ROOT" ]; then
-    echo "Error: WEBBODY_DATA_ROOT environment variable is not set"
-    echo "Please set it using: export WEBBODY_DATA_ROOT=/path/to/your/data"
-    exit 1
-fi
-
-# Get number of available GPUs
-num_gpus=$(nvidia-smi --query-gpu=gpu_name --format=csv,noheader | wc -l)
-if [ "$num_gpus" -eq 0 ]; then
-    echo "Error: No GPUs found"
-    exit 1
-fi
-
-# Default values
+# Usage: bash run.sh [--delete]. Sources are removed only after verified output.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")"
+: "${WEBBODY_DATA_ROOT:?Set WEBBODY_DATA_ROOT to the absolute data directory}"
 delete=false
-
-# Parse command-line arguments
-while [[ "$#" -gt 0 ]]; do
-    case $1 in
-        --delete) delete=true ;;
-        *) echo "Unknown parameter passed: $1"; exit 1 ;;
-    esac
-    shift
-done
-
-# Set up directories
+case "${1:-}" in
+    "") ;;
+    --delete) delete=true ;;
+    *) echo "Usage: $0 [--delete]" >&2; exit 2 ;;
+esac
+(( $# <= 1 )) || exit 2
+num_gpus=$(nvidia-smi --query-gpu=gpu_name --format=csv,noheader | wc -l)
+(( num_gpus > 0 )) || { echo 'No GPUs found' >&2; exit 1; }
 base_dir="${WEBBODY_DATA_ROOT}/raw_img_parquets_640"
 save_dir="${WEBBODY_DATA_ROOT}/raw_img_parquets_640_yolo_cropped"
-
-# Check if base directory exists
-if [ ! -d "$base_dir" ]; then
-    echo "Error: Base directory $base_dir does not exist"
-    exit 1
-fi
-
-# Get all parquet directories and extract their numbers
-parquet_dirs=($(ls -d ${base_dir}/*_parquet 2>/dev/null | grep -o '[0-9]*_parquet$' | sed 's/_parquet$//'))
-if [ ${#parquet_dirs[@]} -eq 0 ]; then
-    echo "Error: No parquet directories found in $base_dir"
-    exit 1
-fi
-
-# Sort the numbers and get start and end
-start=${parquet_dirs[0]}
-end=${parquet_dirs[-1]}
-
-echo "Found parquet directories from $start to $end"
-
-# Create save directory if it doesn't exist
+shopt -s nullglob
+sources=("$base_dir"/*_parquet)
+(( ${#sources[@]} > 0 )) || { echo "No parquet directories in $base_dir" >&2; exit 1; }
 mkdir -p "$save_dir"
-
-# Create GPU device list
-gpu_list=$(seq -s, 0 $((num_gpus-1)))
-
-for (( i = start; i <= end; i++ )); do
-    # Check if the parquet directory exists before processing
-    if [ ! -d "${base_dir}/${i}_parquet" ]; then
-        echo "Skipping ${i} as directory does not exist"
-        continue
-    fi
-    
-    port=$(( base_port + i * 8 ))
-    echo "Running for $i using $num_gpus GPUs..."
-    CUDA_VISIBLE_DEVICES=$gpu_list fabric run --strategy=ddp --devices=$num_gpus --precision="32-true" --main-port=$port \
-    run_yolo_detection.py --parquet_dir ${base_dir}/${i}_parquet \
-                          --save_dir ${save_dir} \
-                          --confidence_threshold 0.7 \
-                          --num_gpu $num_gpus
-
-    # Delete the parquet directory if --delete is passed
-    if [ "$delete" = true ]; then
-        echo "Deleting ${base_dir}/${i}_parquet..."
-        rm -rf "${base_dir}/${i}_parquet"
-    fi
+gpu_list=$(seq -s, 0 $((num_gpus - 1)))
+stage=''
+trap 'if [[ -n "$stage" ]]; then rm -rf -- "$stage"; fi' EXIT
+for source in "${sources[@]}"; do
+    [[ -d "$source" && ! -L "$source" ]] || { echo "Invalid source: $source" >&2; exit 1; }
+    for (( rank=0; rank<num_gpus; rank++ )); do
+        target="$save_dir/$(basename "$source")_rank_$rank"
+        [[ ! -e "$target" ]] || { echo "Output already exists: $target" >&2; exit 1; }
+    done
+    stage=$(mktemp -d "$save_dir/.extract-XXXXXXXX")
+    CUDA_VISIBLE_DEVICES="$gpu_list" fabric run --strategy=ddp --devices="$num_gpus" \
+        --precision=32-true --main-port="${WEBBODY_MAIN_PORT:-29500}" run_yolo_detection.py \
+        --parquet_dir "$source" --save_dir "$stage" --confidence_threshold 0.7 --num_gpu "$num_gpus"
+    python3 completion.py "$source" "$stage" "$num_gpus"
+    for (( rank=0; rank<num_gpus; rank++ )); do
+        mv -T -- "$stage/$(basename "$source")_rank_$rank" "$save_dir/$(basename "$source")_rank_$rank"
+    done
+    rmdir "$stage"
+    stage=''
+    if [[ "$delete" == true ]]; then rm -rf -- "$source"; fi
 done
-
-echo "Done."

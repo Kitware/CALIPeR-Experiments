@@ -101,5 +101,5 @@ def load_npz(path):
     """Load one role's .npz into a plain dict of arrays."""
     if not osp.exists(path):
         raise FileNotFoundError("missing feature cache: {}".format(path))
-    z = np.load(path, allow_pickle=False)
-    return {k: z[k] for k in z.files}
+    with np.load(path, allow_pickle=False) as z:
+        return {k: z[k] for k in z.files}

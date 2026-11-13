@@ -48,19 +48,9 @@ class CropDataset(Dataset):
 
 
 def load_param_tolerant(model, path):
-    """Copy checkpoint weights by name, skipping shape mismatches. Lets num_class be arbitrary: the
-    feature weights (image_encoder, bottleneck, bottleneck_proj) load; the unused classifier/prompt skip."""
-    param_dict = torch.load(path, map_location='cpu')
-    sd = model.state_dict()
-    loaded, skipped = 0, []
-    for k, v in param_dict.items():
-        k2 = k.replace('module.', '')
-        if k2 in sd and sd[k2].shape == v.shape:
-            sd[k2].copy_(v)
-            loaded += 1
-        else:
-            skipped.append(k2)
-    print("loaded {} params from {}; skipped {} (e.g. {})".format(loaded, path, len(skipped), skipped[:4]))
+    """Require the complete inference backbone; training-only heads may differ."""
+    from caliper_eval.checkpoints import load_inference_weights
+    return load_inference_weights(model, path, unused=('classifier', 'prompt_learner'))
 
 
 def extract(model, crop_paths, transform, device, batch_size, num_workers):
