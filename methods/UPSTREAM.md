@@ -9,6 +9,9 @@ For CALIPeR setup and evaluation, use the [benchmark README](../README.md) and
 navigation note. The GEFF and X-TFCLIP top-level directories currently have no license file.
 Some nested components include their own license notices.
 
+Use the [path conventions](PORTABILITY.md) to set the working directory and locate datasets,
+checkpoints, and outputs for an upstream workflow.
+
 | directory | upstream | base commit | date |
 |---|---|---|---|
 | `reid-strong-baseline` (BoT) | https://github.com/michuanhaohao/reid-strong-baseline | `7fda2273cc656b4db65f33ef38962873c44658a4` | 2020-04-23 |

@@ -32,6 +32,9 @@ Each method also needs its own upstream dependencies; see its README for depende
 information. The upstream dataset and training examples describe those original projects; use the
 CALIPeR commands below and in [TRAINING.md](TRAINING.md) for this benchmark.
 
+Upstream examples use portable data, checkpoint and output paths. See
+[the method path conventions](methods/PORTABILITY.md) before running those workflows.
+
 ## Data
 
 | variable | default | what it points to |
