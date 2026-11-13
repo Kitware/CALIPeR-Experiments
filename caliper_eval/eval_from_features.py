@@ -133,6 +133,9 @@ def main():
     ap.add_argument('--fig6-generation-dir', help='For Figure 6, give the directory containing the generated real and simulated query sets.')
     args = ap.parse_args()
 
+    if args.fig6_generation_dir and sys.version_info < (3, 10):
+        ap.error('--fig6-generation-dir requires Python 3.10 or newer')
+
     if args.fig6_generation_dir and (args.pooling != ['video'] or args.pool_op != 'mean'
             or args.metric != 'cosine' or args.cam_exclusion != 'none'
             or args.max_per_video != 0 or args.min_track_crops != 0):

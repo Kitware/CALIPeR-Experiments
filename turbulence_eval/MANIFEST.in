@@ -1,2 +1,0 @@
-# Local machine paths are not part of the source distribution.
-recursive-exclude configs *_local.ini

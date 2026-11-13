@@ -36,7 +36,7 @@
 # the estimated entrance-pupil diameter D remains that of the base lens.
 # _sensor_model is metadata: these configs do not model Bayer sampling,
 # demosaicing, sensor-specific spectral QE, or optical-filter transmission.
-# caliper_sim loads this file when the brc2 profile is selected.
+# turbulence_eval loads this file when the brc2 profile is selected.
 # interp=True enables pyBSM interpolation at the modeled ranges and altitudes.
 CAMERA_CONFIGS: dict[str, dict] = {
     "250m": {  # 250m ground monochrome station; ground, monochrome

@@ -18,10 +18,23 @@ caliper-eval = "caliper_eval.eval_from_features:main"
 
 [tool.setuptools]
 license-files = ["LICENSE", "methods/README.md"]
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["caliper_eval*", "turbulence_eval*"]
+packages = ["caliper_eval", "turbulence_eval", "turbulence_eval._vendor"]
+include-package-data = false
 
 [tool.setuptools.package-data]
-turbulence_eval = ["configs/*.ini", "requirements.txt", "_vendor/*LICENSE*"]
+turbulence_eval = [
+    "README.md", "WORKFLOWS.md", "requirements.txt", "_vendor/P2S_LICENSE", "_vendor/DAATSIM_NOTICE.txt", "_vendor/DAATSIM_LICENSE.txt",
+    "configs/chips_250_to_500.ini",
+    "configs/chips_fig6_brc1.ini",
+    "configs/chips_fig6_brc2.ini",
+    "configs/chips_fig6_combined.ini",
+    "configs/chips_table3_brc1.ini",
+    "configs/chips_table3_brc2.ini",
+    "configs/chips_test.ini",
+    "configs/chips_train.ini",
+    "configs/frames_table3_brc1.ini",
+    "configs/frames_table3_brc2.ini",
+    "configs/frames_table3_brc2_color_calibrated.ini",
+    "configs/images.ini",
+    "configs/table3.ini",
+]

@@ -6,8 +6,7 @@ Use these workflows for the experiments in
 *CALIPeR: Co-Temporal Atmospheric Long-range Imagery for Person Re-identification*:
 
 - **Generate synthetic data:** simulate imagery at a target distance.
-- **Table 3:** compare simulated and real imagery using image-quality metrics,
-  with either person chips or full frames.
+- **Table 3:** compare the image quality of simulated and real camera frames.
 - **Figure 6:** evaluate Re-ID retrieval on real and simulated person chips
   using the existing model extractors and checkpoints.
 
@@ -22,6 +21,11 @@ python -m pip install -r turbulence_eval/requirements.txt -e .
 python -m pip check
 ```
 
+Simulation and Figure 6 require Python 3.10 or newer. The root distribution
+installs `turbulence_eval` alongside `caliper_eval`; generation dependencies are
+installed explicitly by the command above. Use separate method environments
+for feature extraction. Core evaluation remains NumPy-only.
+
 CPU execution is supported; CUDA is optional. Before generating data, edit the
 selected INI's dataset, model-asset and output paths for your machine. Paths
 inside INIs resolve relative to the INI file. Use a new output directory for each
@@ -30,34 +34,32 @@ see [setup and inputs](WORKFLOWS.md#environment-and-inputs).
 
 ## Table 3
 
-Choose one base config and use it for both generation and analysis:
+The paper compares whole camera frames. Prepare the [full-frame inputs](WORKFLOWS.md#prepare-full-frame-inputs-outside-this-repository)
+as JPEG or PNG images in subject and camera folders. Use the same config for generation and analysis.
 
-| Collection | Person chips | Full frames |
-|---|---|---|
-| Collect 1 | [chips_table3_brc1.ini](configs/chips_table3_brc1.ini) | [frames_table3_brc1.ini](configs/frames_table3_brc1.ini) |
-| Collect 2 | [chips_table3_brc2.ini](configs/chips_table3_brc2.ini) | [frames_table3_brc2.ini](configs/frames_table3_brc2.ini) |
-
-For example:
+Run these commands for Collect 1 from the repository root.
 
 ```bash
-python -m turbulence_eval.generate_synthetic_data --config turbulence_eval/configs/chips_table3_brc1.ini --preview
-python -m turbulence_eval.generate_synthetic_data --config turbulence_eval/configs/chips_table3_brc1.ini
-python -m turbulence_eval.create_table3 --config turbulence_eval/configs/chips_table3_brc1.ini
+CONFIG=turbulence_eval/configs/frames_table3_brc1.ini
+python -m turbulence_eval.generate_synthetic_data --config "$CONFIG" --preview
+python -m turbulence_eval.generate_synthetic_data --config "$CONFIG"
+python -m turbulence_eval.create_table3 --config "$CONFIG"
 ```
 
-The preview checks the selection without generating images. Generation saves the
-synthetic dataset. Analysis writes `table3.md`, `table3.csv` and quality plots to
-the configured report directory.
+The preview shows which frames were selected. Generation writes the simulated frames.
+Analysis writes `table3.md`, `table3.csv` and plots to the report directory specified in the config.
 
-Chip configs read the existing indexed v4 person chips. Full-frame configs need
-**pre-extracted JPEG/PNG images** in subject/camera folders. MP4-to-frame conversion
-is an external preparation step and is not included in this repository.
+For Collect 2, set `CONFIG=turbulence_eval/configs/frames_table3_brc2.ini` and run the same three commands.
+Its source is the calibrated color camera (`250m-c`), and analysis uses grayscale.
 
-Collect 2 full frames use the calibrated color source (`250m-c`) with grayscale
-analysis. Indexed Collect 2 chips use the separate ground monochrome station
-and retain proxy strengths. DAATSim outputs stay at their native square
-resolution for metrics. See the [Table 3 workflow](WORKFLOWS.md#table-3-workflow-generate-data-then-analyze-it)
-for input layouts, settings and repeated analysis runs.
+### Measure image quality on person crops
+
+To study cropped people, use [the Collect 1 chip config](configs/chips_table3_brc1.ini)
+or [the Collect 2 chip config](configs/chips_table3_brc2.ini) with the same commands.
+These configs read indexed v4 crops. Cropping changes the measured area and can change the simulator rankings.
+Collect 2 chips come from the monochrome station and use proxy strengths. DAATSim outputs are measured
+at their native square resolution. See the [Table 3 workflow](WORKFLOWS.md#table-3-workflow-generate-data-then-analyze-it)
+for settings and repeat analyses.
 
 ## Figure 6
 

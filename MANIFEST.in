@@ -1,0 +1,17 @@
+include README.md TRAINING.md RESULTS.md
+include turbulence_eval/README.md turbulence_eval/WORKFLOWS.md turbulence_eval/requirements.txt
+include turbulence_eval/_vendor/P2S_LICENSE
+prune turbulence_eval/configs
+include turbulence_eval/configs/chips_250_to_500.ini
+include turbulence_eval/configs/chips_fig6_brc1.ini
+include turbulence_eval/configs/chips_fig6_brc2.ini
+include turbulence_eval/configs/chips_fig6_combined.ini
+include turbulence_eval/configs/chips_table3_brc1.ini
+include turbulence_eval/configs/chips_table3_brc2.ini
+include turbulence_eval/configs/chips_test.ini
+include turbulence_eval/configs/chips_train.ini
+include turbulence_eval/configs/frames_table3_brc1.ini
+include turbulence_eval/configs/frames_table3_brc2.ini
+include turbulence_eval/configs/frames_table3_brc2_color_calibrated.ini
+include turbulence_eval/configs/images.ini
+include turbulence_eval/configs/table3.ini

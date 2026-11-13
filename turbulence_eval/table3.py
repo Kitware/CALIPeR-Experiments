@@ -297,7 +297,7 @@ def _load_generation(data_dir):
     if not manifest.is_file():
         raise FileNotFoundError(
             f"No completed generation found in {data_dir}. "
-            "Run python -m caliper_sim.generate_synthetic_data first."
+            "Run python -m turbulence_eval.generate_synthetic_data first."
         )
     generation = json.loads(manifest.read_text())
     if generation.get("kind") in ("synthetic_chips", "synthetic_images"):

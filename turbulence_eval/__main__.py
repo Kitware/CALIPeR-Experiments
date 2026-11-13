@@ -16,7 +16,7 @@ def main():
     from .adapter import SimulationOptions
     from .generate import generate_images
     parser = argparse.ArgumentParser(description="Simulate CALIPeR ground-camera imagery with pyBSM.")
-    parser.epilog = "For indexed chips (default config format): python -m caliper_sim --config configs/chips_test.ini [--preview]"
+    parser.epilog = "For indexed chips (default config format): python -m turbulence_eval --config turbulence_eval/configs/chips_test.ini [--preview]"
     inputs = parser.add_mutually_exclusive_group(required=True)
     inputs.add_argument("--input-dir", help="Flat directory of source images.")
     inputs.add_argument("--stable-frames-dir", help="Root containing <subject>/<camera>/ images.")

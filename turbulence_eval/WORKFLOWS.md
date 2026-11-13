@@ -3,7 +3,7 @@
 Detailed setup, generation, analysis and integration guidance for CALIPeR.
 Start with the [README](README.md) for the package overview and base configs.
 
-Commands in this guide run from the `caliper_sim` repository directory after
+Commands in this guide run from the `CALIPeR-Experiments` repository root after
 installation. Paths inside INIs resolve relative to the INI file; command-line
 path overrides resolve from the current directory. Generation reads the source
 dataset and writes to a separate output directory. Analysis reads completed
@@ -25,26 +25,29 @@ generation outputs. Use a new output directory for each generation or report.
 
 ## Environment and inputs
 
-This repository installs independently. Use Python 3.10 and run setup from its
-root directory:
+Use a separate Python 3.10 environment for simulation. Run setup from the
+`CALIPeR-Experiments` repository root:
 
 ```bash
 python3.10 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -r requirements.txt -e .
+python -m pip install -r turbulence_eval/requirements.txt -e .
 python -m pip check
-python -m caliper_sim.generate_synthetic_data --help
-python -m caliper_sim.create_table3 --help
+python -m turbulence_eval.generate_synthetic_data --help
+python -m turbulence_eval.create_table3 --help
 ```
 
 [`requirements.txt`](requirements.txt) installs the dependencies for image
 generation and Table 3 evaluation, including public pyBSM and NRTK for radial
-distortion. `-e .` installs this package so `python -m caliper_sim` works from
+distortion. `-e .` installs this package so `python -m turbulence_eval` works from
 inside the repository or another directory. OpenCV is pinned to 4.11 to support
 NumPy 1.26. CPU execution is supported; CUDA acceleration is optional.
 For a specific CPU/CUDA Torch build, install the
 matching Torch 2.12.0 and Torchvision 0.27.0 wheels before installing the requirements.
+The requirements also pin a compatible SMQTK family for NRTK so the original
+Pillow 12.2 image stack is retained. For a CPU setup, install the pair
+first with `python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.12.0 torchvision==0.27.0`.
 
 No separate DAATSim, P2S or modified pyBSM checkout is needed. DAATSim and P2S
 kernels are included in `_vendor/`; pyBSM 0.15.0 is installed from PyPI.
@@ -65,10 +68,12 @@ The 260m and 380m camera models interpolate between tabulated ranges.
 ### Requirements by workflow
 
 [`requirements.txt`](requirements.txt) is the pinned dependency list for the
-standalone package; `pyproject.toml` reads that file directly. The validated
-environment uses Python 3.10. Package metadata also allows Python 3.11, which
-is not part of the documented Python 3.10 setup. Model-specific packages belong to the
-chosen Re-ID adapter's environment and are not bundled with the simulator.
+simulation environment; install it explicitly from the repository root. The
+root distribution is `caliper-reid-eval`, which installs both `caliper_eval` and
+`turbulence_eval`. Core evaluation retains Python 3.7+ support and NumPy-only
+dependencies. Simulation and Figure 6 require Python 3.10+; the pinned setup
+below targets Python 3.10. Model-specific packages belong to their own method
+environments. Do not install the simulation stack into every method environment.
 
 | Workflow | Required inputs and assets beyond the Python packages |
 |---|---|
@@ -84,11 +89,10 @@ in the following sections. Datasets, model weights, MP4 conversion and calibrati
 sweeps are not included in the source distribution. No neighboring simulator or
 Re-ID checkout is required for the standalone core.
 
-Use this repository's virtual environment for its commands. If working from a
-parent workspace, `caliper_sim/.venv/bin/python` selects it explicitly; a separate
-workspace-level `.venv` may contain different dependency versions. For the
-commands in this guide, first change into the `caliper_sim` directory and
-activate its `.venv` as shown above.
+Activate the repository-root `.venv` for generation and Table 3 analysis. Use
+each method's existing environment for feature extraction; install the repository
+there with `python -m pip install -e .`. Saved Figure 6 export needs only
+`python -m pip install -e '.[fig6]'` in a Python 3.10+ environment.
 
 ### BRISQUE on the first run
 
@@ -179,9 +183,9 @@ monochrome `250m-m` station into the color `250m-c` source folder.
 Run the normal generation and Table 3 commands after preparation:
 
 ```bash
-python -m caliper_sim.generate_synthetic_data --config configs/frames_table3_brc1.ini --preview
-python -m caliper_sim.generate_synthetic_data --config configs/frames_table3_brc1.ini
-python -m caliper_sim.create_table3 --config configs/frames_table3_brc1.ini
+python -m turbulence_eval.generate_synthetic_data --config turbulence_eval/configs/frames_table3_brc1.ini --preview
+python -m turbulence_eval.generate_synthetic_data --config turbulence_eval/configs/frames_table3_brc1.ini
+python -m turbulence_eval.create_table3 --config turbulence_eval/configs/frames_table3_brc1.ini
 ```
 
 Replace `brc1` with `brc2` for Collect 2. Each target cohort requires the source
@@ -190,7 +194,7 @@ The frame budget is pooled across clips per subject, rather than per video.
 
 ## Table 3 workflow: generate data, then analyze it
 
-Choose one of the four base configs in the [README](README.md#table-3).
+For the paper, choose the full-frame config for your collection in the [README](README.md#table-3).
 Use the same INI for generation and analysis. The examples and directory
 layout below describe full-frame generation; indexed-chip Table 3 runs use
 the [chip output manifests](#generated-chip-outputs-and-loader-integration).
@@ -210,14 +214,12 @@ The images do not need pixel registration. Source-image statistics are also
 recorded for inspection, while the final table compares simulated and real target
 images. This workflow does not train or evaluate a person re-identification model.
 
-Run the commands from this repository directory in the installed environment.
-The generic `configs/table3.ini` illustrates the full-frame schema; replace it
-with `configs/frames_table3_brc1.ini` or `configs/frames_table3_brc2.ini` for the
-collection-specific presets.
+Run the commands from the repository root in the installed environment.
+The commands below use the Collect 1 full-frame config. For Collect 2, use `frames_table3_brc2.ini` throughout.
 
 ### 1. Generate synthetic data
 
-Edit the paths and experiment settings in [`configs/table3.ini`](configs/table3.ini):
+Edit the paths and experiment settings in [the Collect 1 config](configs/frames_table3_brc1.ini):
 
 `[paths]` separates the large generated dataset from the smaller analysis reports.
 For example, place the images and simulator caches on a large data drive and keep
@@ -232,8 +234,8 @@ Absolute paths can point to any mounted drive. Relative paths resolve against th
 INI file's directory for both stages.
 
 ```bash
-python -m caliper_sim.generate_synthetic_data \
-  --config configs/table3.ini
+python -m turbulence_eval.generate_synthetic_data \
+  --config turbulence_eval/configs/frames_table3_brc1.ini
 ```
 
 This stage selects the cohort and frames, saves links to the real inputs, and
@@ -250,7 +252,7 @@ Relative paths resolve against the INI file's directory. The sections specify:
   seeds and device (`auto`, `cpu`, or a Torch CUDA device).
 - `[target:500m]` and `[target:1000m]`: simulator turbulence strengths.
 - `[pybsm]`, `[daatsim]`, `[p2s]`: simulation options.
-- `[analysis]`: measurement frame budget (`num_images = 5`), BRISQUE, grayscale
+- `[analysis]`: measurement frame budget (`num_images = 20` for whole frames), BRISQUE, grayscale
   and resizing options saved for stage 2.
 
 The example configuration uses source camera **260m**, pyBSM Cn2 **1e-12 at
@@ -309,8 +311,8 @@ for another generation attempt.
 Once generation finishes, analyze that directory:
 
 ```bash
-python -m caliper_sim.create_table3 \
-  --config configs/table3.ini
+python -m turbulence_eval.create_table3 \
+  --config turbulence_eval/configs/frames_table3_brc1.ini
 ```
 
 Analysis samples the saved real and synthetic images, computes each metric per image, and
@@ -332,7 +334,7 @@ You can override the generation location with `--output-data-path`. To analyze
 an existing dataset without an INI, supply both paths explicitly:
 
 ```bash
-python -m caliper_sim.create_table3 \
+python -m turbulence_eval.create_table3 \
   --data-dir /mnt/large-drive/caliper/synthetic_table3 \
   --output-dir /tmp/new-table3-report
 ```
@@ -359,7 +361,7 @@ unchanged. `--workers 6` measures independent frames concurrently while retainin
 the same sampling and aggregation order. For CPU BRISQUE jobs, limiting Torch
 threads per worker avoids oversubscription (for example `OMP_NUM_THREADS=1`).
 
-Completed outputs from `python -m caliper_sim.table3` can also be passed to
+Completed outputs from `python -m turbulence_eval.table3` can also be passed to
 `create_table3`. That command remains available to run generation and analysis
 together using `output_data_path` for data and `output_dir` for reports. Older
 INI files containing only `output_dir` retain their combined output layout.
@@ -385,10 +387,10 @@ source frames per subject and its valid target frames, excluding 55 test-pattern
 frames at 500m and 40 at 1000m. Using a broader raw input pool changes sampling and
 can reintroduce those errors. Expected cohorts are 85 and 64 subjects respectively.
 
-For the prepared saved simulations, run from this package directory:
+For completed simulations, run from the repository root:
 
 ```bash
-python -m caliper_sim.create_table3 --config configs/frames_table3_brc2.ini
+python -m turbulence_eval.create_table3 --config turbulence_eval/configs/frames_table3_brc2.ini
 ```
 
 Each report requires a new output directory; use `--output-dir table3_runs/<new-name>`
@@ -396,11 +398,11 @@ to repeat it. To generate fresh simulations, choose a new destination and then
 analyze it:
 
 ```bash
-python -m caliper_sim.generate_synthetic_data \
-  --config configs/frames_table3_brc2.ini \
+python -m turbulence_eval.generate_synthetic_data \
+  --config turbulence_eval/configs/frames_table3_brc2.ini \
   --output-data-path data/brc2_color_calibrated_fresh
-python -m caliper_sim.create_table3 \
-  --config configs/frames_table3_brc2.ini \
+python -m turbulence_eval.create_table3 \
+  --config turbulence_eval/configs/frames_table3_brc2.ini \
   --data-dir data/brc2_color_calibrated_fresh \
   --output-dir table3_runs/brc2_color_calibrated_fresh
 ```
@@ -610,16 +612,16 @@ evaluation splits as the current Re-ID pipeline. Inputs are read directly;
 generation does not create a staged input tree or write to the source dataset.
 New generation INIs default to `mode = chips`. A partition must be explicit.
 
-After installation, run from this package directory:
+After installation, run from the repository root:
 
 ```bash
 # Inspect the real selection before starting a simulation; writes nothing.
-python -m caliper_sim.generate_synthetic_data --config configs/chips_train.ini --preview
+python -m turbulence_eval.generate_synthetic_data --config turbulence_eval/configs/chips_train.ini --preview
 
 # Generate all configured variants into a new output directory.
-python -m caliper_sim.generate_synthetic_data --config configs/chips_train.ini
+python -m turbulence_eval.generate_synthetic_data --config turbulence_eval/configs/chips_train.ini
 # Equivalent primary entry point:
-python -m caliper_sim --config configs/chips_train.ini
+python -m turbulence_eval --config turbulence_eval/configs/chips_train.ini
 ```
 
 Selection previews for new generation configs use only Python's standard library;
@@ -748,7 +750,7 @@ data; the [Figure 6 workflow](#figure-6-workflow-prepare-evaluate-then-report) c
   settings.json
   selection.json          # selected sources and coverage summary
   chips.jsonl             # authoritative output index, one record per synthetic chip
-  extra_chips.csv         # training runs only; directly consumable via --extra-chips
+  extra_chips.csv         # training runs only; generic CSV export
   images/<variant>/<collection>/<original-relpath-stem>/<frame:06d>.jpg
   eval/                   # test runs only; full loader-compatible crop-level kwcoco
     gallery.kwcoco.json
@@ -766,11 +768,13 @@ clip path, corpus/index tracklet ID, frame, physical camera, and DIVE track ID.
 Output paths preserve source hierarchy, so repeated filenames across clips and
 collections cannot overwrite one another.
 
-`extra_chips.csv` has the existing six columns: `chip_path`, `tracklet_id`,
+`extra_chips.csv` has six columns: `chip_path`, `tracklet_id`,
 `src_tracklet_id`, `canonical_id`, `tok`, and `collection`. IDs take the form
 `sim:<source-tracklet-id>:<variant>` so severities stay separate training units.
-All configured variants are included in this manifest. It can be passed directly
-to `GroundFieldCorpus(extra_chips=...)` or `tools/train_caliper.py --extra-chips ...`.
+The CSV includes all generated variants. The published FT+syn recipe reads a separate
+`sim_train_manifest.csv` and its matching crops. Each training entry must map to its real
+source crop and the expected camera and turbulence strength. See [training inputs](../TRAINING.md#data).
+You can run Figure 6 directly with the generated evaluation splits.
 
 Evaluation documents include subjects, videos, tracks, images, annotations,
 physical camera IDs, and original frame indices. All documents share the same
@@ -794,9 +798,9 @@ simulators. Ordinary Re-ID generation runs remain separate from quality analysis
 To compare BRC1 person chips, configure the P2S assets and run:
 
 ```bash
-python -m caliper_sim --config configs/chips_table3_brc1.ini --preview
-python -m caliper_sim --config configs/chips_table3_brc1.ini
-python -m caliper_sim.create_table3 --config configs/chips_table3_brc1.ini
+python -m turbulence_eval --config turbulence_eval/configs/chips_table3_brc1.ini --preview
+python -m turbulence_eval --config turbulence_eval/configs/chips_table3_brc1.ini
+python -m turbulence_eval.create_table3 --config turbulence_eval/configs/chips_table3_brc1.ini
 ```
 
 The defaults generate 20 source chips per subject and sample five real/synthetic
@@ -874,7 +878,7 @@ invalid frames.
 To summarize an existing completed Table 3 report with **medians across subjects**:
 
 ```bash
-python -m caliper_sim.summarize_table3 \
+python -m turbulence_eval.summarize_table3 \
   --report-dir table3_runs/frames_table3_brc1
 ```
 
@@ -921,7 +925,7 @@ produces a partial metric table.
 ## Standalone pyBSM generation
 
 ```bash
-python -m caliper_sim \
+python -m turbulence_eval \
   --input-dir /path/to/subject/500m \
   --source-camera 500m --target-camera 1000m \
   --cn2 4e-13 --no-resample --no-distortion \
@@ -939,7 +943,7 @@ them. Choose a new output directory.
 The Python API accepts uint8 RGB arrays:
 
 ```python
-from caliper_sim import CameraSimulator, SimulationOptions
+from turbulence_eval import CameraSimulator, SimulationOptions
 
 simulator = CameraSimulator(
     "500m", "1000m",
@@ -953,7 +957,7 @@ simulated_rgb = simulator.perturb(source_rgb)
 Compare one simulator's subject tree with real source and target images:
 
 ```bash
-python -m caliper_sim.quality \
+python -m turbulence_eval.quality \
   --stable-frames-dir /path/to/stable_frames \
   --sim-dir /tmp/new-simulated-subjects \
   --source-camera 260m --target-camera 1000m \
@@ -978,6 +982,7 @@ directory and writes the same quality artifacts described above.
 | Output directory already exists | Choose a new generation destination or pass a fresh `--output-dir` for analysis/reporting. For Figure 6 evaluation, use the documented resume workflow. |
 | Missing P2S assets | Set `p2s_data_dir` to a folder containing all three files listed under [inputs](#real-image-and-p2s-inputs). |
 | BRISQUE cannot download weights | Populate the Torch cache before running offline; see [first-run setup](#brisque-on-the-first-run). |
-| Figure 6 cannot import a model or find weights | Replace the evaluation INI's example factory, `python_path` and checkpoint with your adapter and weights. |
+| Figure 6 method extractor cannot load BoT | Activate the BoT environment and check that `FIG6_WEIGHT` points to the checkpoint file. See [Extract features](#extract-features) for the command. |
+| A custom Figure 6 encoder cannot load | In your evaluation INI, check the factory name, `python_path` and checkpoint for your adapter. See [Model adapter contract](#model-adapter-contract). |
 | Figure 6 rejects a generation directory | Use a completed Figure 6 test-chip generation with all three severities and its gallery/query exports. Table 3 quality outputs use a different protocol. |
 | No eligible source/target images | Check the configured camera folders or chip metadata, collection filter, subject selection and test split. Full-frame source folder names must match the INI. |

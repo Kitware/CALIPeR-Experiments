@@ -1,5 +1,10 @@
 """Simulate imagery from CALIPeR ground cameras."""
 
+import sys
+
+if sys.version_info < (3, 10):
+    raise ImportError("turbulence_eval requires Python 3.10 or newer; core caliper_eval remains available")
+
 __all__ = ["CameraSimulator", "SimulationOptions", "generate_images"]
 
 

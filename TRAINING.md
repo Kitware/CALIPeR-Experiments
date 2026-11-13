@@ -32,10 +32,13 @@ Training uses tracklets from single-subject source videos. To check this filter,
 **Synthetic-turbulence crops** (FT+syn only): a 1:1 re-render of the real 400m ground crops through a
 pyBSM atmospheric-turbulence simulation at three strengths (`cn2_1e-13`, `cn2_4e-13`, `cn2_1e-12`),
 177 subjects, 502 tracklets and 34,251 crops per strength. Each synthetic crop's `src_chip_path` equals
-a real crop's `chip_path`, so it replaces that crop exactly. The required manifest is
-`splits/combined_brc1_brc2_sim_train_corpus/sim_train_manifest.csv`; the default synthetic crop root is
-`reid-chips-sim/`. Pass `--sim-chip-root` to use a copy of those crops elsewhere. The source repository
-does not generate or bundle this manifest or the synthetic crops.
+a real crop's `chip_path`, so it replaces that crop exactly. To run FT+syn, supply
+`splits/combined_brc1_brc2_sim_train_corpus/sim_train_manifest.csv` and the matching crops in
+`reid-chips-sim/`. If your crops are elsewhere, pass their directory with `--sim-chip-root`.
+
+The [simulator](turbulence_eval/WORKFLOWS.md#generated-chip-outputs-and-loader-integration)
+can generate crops and a general-purpose `extra_chips.csv`. Using those crops for training
+requires mapping them to the real source crops in the format expected by `sim_train_manifest.csv`.
 
 **Range labels**: training manifests normalize the physical `380m` station to the `400m` range label.
 References to 400m training or synthetic-source imagery below use that normalized label. The
