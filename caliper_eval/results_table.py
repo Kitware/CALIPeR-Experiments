@@ -33,35 +33,81 @@ def combo_key(c):
     return (0, near[-1] + 0.5, c) if near else (1, 0, c)
 
 # split dir -> (display name, gallery -> query, provenance)
-# Scoped to exactly what feeds the published results (RESULTS.md): the zero-shot survey and
-# fine-tuning headline table (paperGR), the four "other modalities" columns (ground-aerial_test,
-# enroll-field_test, the two clothing splits, cross-collection_test), and the simulated-vs-real
-# comparison (ground_range_sim). All but ground_range_sim use the identity-partitioned ("_test")
-# splits, so none of these rows mix training identities into the gallery as distractors.
+# Map the paper protocols to their splits; report broader splits separately.
 KNOWN = collections.OrderedDict([
     ('combined_brc1_brc2/paperGR', ('paperGR', 'gallery 380m → query 500m + 1000m',
      'combined_brc1_brc2_test/test_ground-range_combined_paperGR.json')),
+    ('combined_brc1_brc2/paperGR_panel_q500', ('paperGR 500m panel',
+     'gallery 380m → panel queries at 500m', '')),
+    ('combined_brc1_brc2/paperGR_panel_q1000', ('paperGR 1000m panel',
+     'gallery 380m → panel queries at 1000m', '')),
+    ('combined_brc1_brc2/ga-panel_test', ('ground-aerial panel (Ground-vs-Elevated)',
+     'ground gallery → aerial panel queries', '')),
+    ('combined_brc1_brc2/ef-wbonly_test', ('whole-body enrollment panel (Enroll-vs-Field)',
+     'whole-body enrollment gallery → field panel queries', '')),
+    ('combined_brc1_brc2/cc-brc1_test', ('ground clothing BRC1 (Same-collect-CC component)',
+     'BRC1 ground cameras, set 1 → set 2', '')),
+    ('combined_brc1_brc2/cc-brc2_test', ('ground clothing BRC2 (Same-collect-CC component)',
+     'BRC2 ground cameras, set 1 → set 2', '')),
+    ('combined_brc1_brc2/ccg_test', ('ground-only longitudinal',
+     'BRC1 ground cameras → BRC2 ground cameras', '')),
     ('kitbrc1/ground_range_sim', ('ground_range_sim', 'real 380m gallery → pyBSM-degraded queries',
      'not identity-partitioned; 3 Cn² levels -- feeds the simulated-vs-real comparison, not the main survey')),
-    ('combined_brc1_brc2/cross-collection_test', ('cross-collection (Longitudinal)',
+    ('combined_brc1_brc2/cross-collection_test', ('cross-collection (broader diagnostic)',
      'BRC1 field → BRC2 field, test ids only',
      'combined_brc1_brc2_test/test_cross-collection_combined.json')),
-    ('combined_brc1_brc2/ground-aerial_test', ('ground-aerial (Ground-vs-Elevated)',
+    ('combined_brc1_brc2/ground-aerial_test', ('ground-aerial (broader diagnostic)',
      'ground cams → aerial cams, test ids only',
      'combined_brc1_brc2_test/test_ground-aerial_combined.json')),
-    ('combined_brc1_brc2/enroll-field_test', ('enroll-field (Enroll-vs-Field)',
+    ('combined_brc1_brc2/enroll-field_test', ('enroll-field (broader diagnostic)',
      'enrollment stills + gait → field video, test ids only',
      'combined_brc1_brc2_test/test_enroll-field_combined.json')),
-    ('combined_brc1_brc2/clothing-brc1_test', ('clothing BRC1 (Same-collect-CC)',
+    ('combined_brc1_brc2/clothing-brc1_test', ('clothing BRC1 (broader diagnostic)',
      'BRC1 set1 → BRC1 set2, test ids only',
      'combined_brc1_brc2_test/test_clothing_combined_brc1.json')),
-    ('combined_brc1_brc2/clothing-brc2_test', ('clothing BRC2 (Same-collect-CC)',
+    ('combined_brc1_brc2/clothing-brc2_test', ('clothing BRC2 (broader diagnostic)',
      'BRC2 set1 → BRC2 set2, test ids only',
      'combined_brc1_brc2_test/test_clothing_combined_brc2.json')),
 ])
 
 # Placeholder for an unavailable score.
 PENDING = '—'
+
+PAPER_COLUMNS = ('500m', '1000m', 'Ground-vs-Elevated', 'Enroll-vs-Field',
+                 'Same-collect-CC', 'Longitudinal')
+
+
+def paper_values(cells, combo):
+    """Select paper populations without falling back to a broader or incomplete split."""
+    def get(split, token='combined'):
+        return cells.get('combined_brc1_brc2/' + split, {}).get(combo, {}).get(token)
+
+    if combo in ('cal/last', 'x-tfclip/agvpreid'):
+        ranges = [get('paperGR', '500m'), get('paperGR', '1000m')]
+    else:
+        ranges = [get('paperGR_panel_q500'), get('paperGR_panel_q1000')]
+    clothing = [get('cc-brc1_test'), get('cc-brc2_test')]
+    average = None
+    if all(component is not None for component in clothing):
+        # Equal collection weights, regardless of query counts. Round only after averaging.
+        average = {metric: sum(c[metric] for c in clothing) / 2.0 for metric in ('mAP', 'rank1')}
+    return ranges + [get('ga-panel_test'), get('ef-wbonly_test'), average, get('ccg_test')]
+
+
+def paper_summary(cells):
+    lines = ['## Zero-shot results by paper protocol\n',
+             'Results from the shared evaluator, mAP / Rank-1 (%).',
+             'Splits containing training identities are excluded. Missing results appear as —.',
+             'Longitudinal and Same-collect-CC use ground cameras only.',
+             'Same-collect-CC averages BRC1 and BRC2 metrics equally; both are required.\n',
+             '| method / source | ' + ' | '.join(PAPER_COLUMNS) + ' |',
+             '|---' * (1 + len(PAPER_COLUMNS)) + '|']
+    for combo in COMBO_ORDER:
+        values = paper_values(cells, combo)
+        formatted = [PENDING if v is None else '{:.1f} / {:.1f}'.format(v['mAP'] * 100, v['rank1'] * 100)
+                     for v in values]
+        lines.append('| `{}` | {} |'.format(combo, ' | '.join(formatted)))
+    return lines + ['']
 
 
 def split_meta(split_dir, train_ids):
@@ -138,7 +184,7 @@ def main():
                 continue
             key = (split, combo)
             if key in selected:
-                raise ValueError('ambiguous published results: {} and {}; keep one evaluation per method/source'.format(selected[key], f))
+                raise ValueError('multiple eligible results: {} and {}; keep one evaluation per method/source'.format(selected[key], f))
             if result.get('method') != p[-3] or result.get('source') != p[-2] or result.get('split') != p[-4]:
                 raise ValueError('result metadata disagrees with its benchmark directory: ' + f)
             values = result['results']['video']
@@ -156,7 +202,7 @@ def main():
             ap.error(str(exc))
     for key, filenames in excluded.items():
         if key not in selected:
-            ap.error('no published-protocol video evaluation for {}/{}; rescore with --pooling video --pool-op mean --metric cosine --cam-exclusion none --min-track-crops 0 --max-per-video 0'.format(*key))
+            ap.error('no compatible video evaluation for {}/{}; rescore with --pooling video --pool-op mean --metric cosine --cam-exclusion none --min-track-crops 0 --max-per-video 0'.format(*key))
         print('excluded {} incompatible evaluation variant(s) for {}/{}'.format(len(filenames), *key), file=sys.stderr)
     # Include known splits with manifests, even before scores are saved.
     metas = {s: split_meta(s, train_ids) for s in KNOWN}
@@ -166,8 +212,8 @@ def main():
          "Video pooling, cosine, all frames (`--max-per-video 0`). Regenerate with",
          "`python -m caliper_eval.results_table`.\n",
          "## Training identities in evaluation splits\n",
-         "A split is only valid after finetuning if it contains **no training identities**. All",
-         "splits except `ground_range_sim` exclude training identities.\n",
+         "A split is only valid after finetuning if it contains **no training identities**.",
+         "The table counts training identities in each gallery and query set.\n",
          "| split | gallery → query | gallery clips / ids | query clips / ids | training ids "
          "| valid post-training | Scored checkpoints |",
          "|---|---|---|---|--:|---|---|"]
@@ -179,6 +225,8 @@ def main():
             name, desc, m['g'], m['gi'], m['q'], m['qi'], m['ntr'], ok,
             len(cells[s])))
 
+    safe_cells = {s: cells[s] for s in order if metas[s]['ntr'] == 0}
+    L += ['', *paper_summary(safe_cells)]
     combos = sorted({c for s in order for c in cells[s]}, key=combo_key)
     L += ["", "## Which method ran on which split\n",
           "| method / source | " + " | ".join(KNOWN.get(s, (s,))[0] for s in order) + " |",
@@ -191,7 +239,7 @@ def main():
     for s in order:
         m, name = metas.get(s), KNOWN.get(s, (s, '', ''))[0]
         desc, src = KNOWN.get(s, (s, '', ''))[1:]
-        L += ["", "---", "", "## {}\n".format(name), "{}. Source: `{}`\n".format(desc, src),
+        L += ["", "---", "", "## {}\n".format(name), "{}.{}\n".format(desc, " Source: `{}`".format(src) if src else ""),
               "Gallery **{:,} clips / {} identities** · query **{:,} clips / {} identities** · "
               "training identities present: **{}**{}\n".format(
                   m['g'], m['gi'], m['q'], m['qi'], m['ntr'],
@@ -217,20 +265,17 @@ def main():
                 c, cellstr, r['combined']['mAP'] * 100, r['combined']['rank1'] * 100))
 
     L += ["", "---", "", "## Notes", "",
-          "- **Every split here except `ground_range_sim` uses the identity-partitioned (`_test`) "
-          "variant** — training identities are excluded from the gallery, so distractor counts are "
-          "consistent across rows and comparable to the fine-tuned checkpoints' own eval. Dropping "
-          "training identities from a gallery also drops them as distractors, which would otherwise "
-          "make an unpartitioned split score higher for reasons that have nothing to do with the "
-          "model -- so don't compare these numbers against an unpartitioned run of the same split.",
+          "- Use the exact identity-partitioned paper manifests. Changing a gallery changes its "
+          "distractors and can change the metrics even when the checkpoint is identical. The "
+          "identity check above does not verify manifest versions or camera membership.",
           "- **`ground_range_sim` is not identity-partitioned** (100 subjects, 28 training "
           "identities) and isn't part of the main zero-shot survey — it exists to compare simulated "
           "vs. real query CMC curves (same real 380m gallery, pyBSM-degraded 1000m queries at 3 "
           "turbulence strengths vs. real 1000m queries).",
-          "- **`cross-collection` is open-set** (39 mated of 96 query ids); a query with no gallery "
-          "match is excluded from the mean automatically (counted as `dropped_queries` in the "
-          "eval JSON). ~±15 pp Rank-1 resolution; "
-          "qualitative only.",
+          "- **Longitudinal uses ground cameras only**. Queries without gallery matches are "
+          "excluded from mAP/CMC. Broader splits are reported separately.",
+          "- **Same-collect-CC uses ground cameras only**. Average the separately scored BRC1 and "
+          "BRC2 metrics with equal weights, before rounding.",
           "- **`enroll-field`'s gallery is 232 ids but 0 of them are training ids** — it is the 170 test "
           "subjects plus the 62 canonical ids that carry no field media and so fall in neither "
           "partition, kept as enrollment distractors.",

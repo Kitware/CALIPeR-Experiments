@@ -7,7 +7,7 @@ Imagery for Person Re-identification."**
 
 - `caliper_eval/` reads splits and features, scores retrieval, and supplies the training corpus and samplers.
 - `turbulence_eval/` generates simulated images and compares them with real images for [Table 3 and Figure 6](turbulence_eval/README.md).
-- `methods/` contains the seven method implementations. BoT, SINet, CLIP-ReID, and PersonViT support fine-tuning. CAL, X-TFCLIP, and SapiensID support zero-shot evaluation. See the [upstream revisions](methods/UPSTREAM.md).
+- `methods/` contains the seven method implementations. BoT, SINet, CLIP-ReID, and PersonViT support fine-tuning. CAL, X-TFCLIP, and SapiensID support zero-shot evaluation. Use the [method guides and citations](methods/README.md).
 
 ## Results
 
@@ -68,54 +68,63 @@ eval/<dataset>/<split>/<method>/<source>/           feature .npz files and eval 
 
 ## Reproducing the evaluation
 
-**1. Build the crop-level splits** from the video-level split JSONs (CPU only). Run each command once;
-building a split's gallery and queries in separate invocations renumbers subjects and breaks
-matching.
+### Run BoT on the longitudinal split
+
+Start in the repository root with the two [data paths](#data) exported and the
+[BoT environment](methods/ENVIRONMENTS.md) active. Download the
+[Market1501 checkpoint](methods/reid-strong-baseline/README.md) and place
+`market_resnet50_model_120_rank1_945.pth` in `methods/reid-strong-baseline/weights/`.
+
+First, build the gallery and queries together so they use the same subject IDs.
+Use a new or empty output directory. The scorer searches the Collect 1 ground-camera
+gallery for each person seen by ground cameras in Collect 2 who has a gallery match.
 
 ```bash
 S="$CALIPER_DATA_ROOT/splits/combined_brc1_brc2_test"
 O="$REID_BENCH_ROOT/splits"
-python3 -m caliper_eval.split_from_combined --split-json "$S/test_ground-range_combined_paperGR.json" \
-    --out-dir "$O/paperGR" --gallery-token 380m --query-token-per-tok
-python3 -m caliper_eval.split_from_combined --split-json "$S/test_cross-collection_combined.json" \
-    --out-dir "$O/cross-collection_test" --gallery-token brc1 --query-token brc2 --mated-only
-python3 -m caliper_eval.split_from_combined --split-json "$S/test_ground-aerial_combined.json" \
-    --out-dir "$O/ground-aerial_test" --gallery-token ground --query-token aerial
-python3 -m caliper_eval.split_from_combined --split-json "$S/test_enroll-field_combined.json" \
-    --out-dir "$O/enroll-field_test" --gallery-token enroll --query-token field
-python3 -m caliper_eval.split_from_combined --split-json "$S/test_clothing_combined_brc1.json" \
-    --out-dir "$O/clothing-brc1_test" --gallery-token set1 --query-token set2
-python3 -m caliper_eval.split_from_combined --split-json "$S/test_clothing_combined_brc2.json" \
-    --out-dir "$O/clothing-brc2_test" --gallery-token set1 --query-token set2
+python3 -m caliper_eval.split_from_combined \
+    --split-json "$S/test_cross-clothing-ground_combined.json" \
+    --out-dir "$O/ccg_test" --gallery-token brc1 --query-token brc2 --mated-only
+SPLIT=ccg_test ./methods/reid-strong-baseline/extract_features.sh
 ```
 
-All of these use the `combined_brc1_brc2_test` partition: 170 test identities, none of them used for
-training.
+The wrapper extracts features and prints mAP and Rank-1. The saved scores are in
+`$REID_BENCH_ROOT/eval/combined_brc1_brc2/ccg_test/bot/market1501/eval_mean_cosine.json`.
+Compare the combined video scores with the BoT longitudinal column in [RESULTS.md](RESULTS.md).
 
-| split | column in RESULTS.md | gallery → query |
-|---|---|---|
-| `paperGR` | Ground-Range 500m / 1000m | real 380m → real 500m, 1000m |
-| `ground-aerial_test` | Ground-vs-Elevated | ground cameras → aerial cameras |
-| `enroll-field_test` | Enroll-vs-Field | enrollment stills + gait → field video |
-| `clothing-brc1_test`, `clothing-brc2_test` | Same-collect-CC | set 1 → set 2 within one collection (different clothing) |
-| `cross-collection_test` | Longitudinal | BRC1 field → BRC2 field |
+### Choose another paper evaluation
 
-**Longitudinal is open-set.** Only 39 of its 96 query identities appear in the gallery. mAP and Rank-k
-are defined only for queries that have a match. With video pooling, they are averaged over the 1,198
-valid query videos belonging to those 39 identities; this is not an average of per-identity scores.
-The 57 unmatched query identities are excluded; `--mated-only` drops them when the
-split is built. All 113 gallery identities, including those that never appear as queries, are kept as
-distractors.
+A panel is a selection of videos from a broader split. Choose the split for your
+method and paper column before extracting features. For each panel, use its
+corresponding experiment manifest and the exact split directory name below.
 
-**2. Extract features and score** with each method's wrapper, from the working directory listed below.
-Download the upstream checkpoints and place them at the paths configured near the top of that
-method's `extract_features.sh`. The experiment checkpoints expected by these wrappers are not bundled.
-Each wrapper also runs the shared evaluation after extraction.
+| Paper column | Method and checkpoint | Split directory | Gallery → queries |
+|---|---|---|---|
+| Ground-Range | BoT, SINet, CLIP-ReID, PersonViT and SapiensID, zero-shot | `paperGR_panel_q500`, `paperGR_panel_q1000` | 380m → selected queries at 500m or 1000m |
+| Ground-Range | CAL and X-TFCLIP, zero-shot. All fine-tuned checkpoints | `paperGR` | 380m → full 500m and 1000m query sets |
+| Ground-vs-Elevated | All zero-shot methods | `ga-panel_test` | ground cameras → selected aerial queries |
+| Enroll-vs-Field | All zero-shot methods | `ef-wbonly_test` | whole-body enrollment → selected field queries |
+| Same-collect-CC | All zero-shot methods | `cc-brc1_test`, `cc-brc2_test` | ground cameras, clothing set 1 → set 2 in each collection |
+| Longitudinal | All zero-shot methods | `ccg_test` | ground cameras, Collect 1 → Collect 2 |
+
+To build the full ground-range or clothing splits, run the relevant commands with
+the same `S` and `O` paths as above. For clothing, score both collections, average
+each metric with equal weight, then round. The paper summary requires both scores.
 
 ```bash
-./extract_features.sh                                  # paperGR (default)
-SPLIT=cross-collection_test ./extract_features.sh      # any other split above
+python3 -m caliper_eval.split_from_combined --split-json "$S/test_ground-range_combined_paperGR.json" \
+    --out-dir "$O/paperGR" --gallery-token 380m --query-token-per-tok
+python3 -m caliper_eval.split_from_combined --split-json "$S/test_clothing-ground_combined_brc1.json" \
+    --out-dir "$O/cc-brc1_test" --gallery-token set1 --query-token set2
+python3 -m caliper_eval.split_from_combined --split-json "$S/test_clothing-ground_combined_brc2.json" \
+    --out-dir "$O/cc-brc2_test" --gallery-token set1 --query-token set2
 ```
+
+Run each method’s `extract_features.sh` with `SPLIT` set to the directory you built.
+For example, after preparing the 500m panel, run
+`SPLIT=paperGR_panel_q500 ./methods/reid-strong-baseline/extract_features.sh`
+from the repository root. A wrapper uses full `paperGR` when you omit `SPLIT`.
+Find the weights for each method in the [methods guide](methods/README.md).
 
 | method | working directory | Python extractor | checkpoint argument for direct Python invocation |
 |---|---|---|---|
@@ -130,7 +139,9 @@ SPLIT=cross-collection_test ./extract_features.sh      # any other split above
 All extractors accept `--split`, `--dataset`, and `--source`; use each extractor's `--help` for
 method-specific options. These Python arguments are not forwarded by the shell wrappers.
 
-**3. Score or rescore an existing feature set** directly, replacing the placeholders:
+### Score saved features and collect the results
+
+Replace the placeholders with your split, method and checkpoint source.
 
 ```bash
 python3 -m caliper_eval.eval_from_features \
@@ -138,7 +149,7 @@ python3 -m caliper_eval.eval_from_features \
     --pooling video --metric cosine --max-per-video 0
 ```
 
-The installed `caliper-eval` command exposes the same evaluator. To collect the published splits
+The installed `caliper-eval` command exposes the same evaluator. To collect scores by paper protocol
 into a Markdown table, run:
 
 ```bash
@@ -150,6 +161,31 @@ The report is written to `$REID_BENCH_ROOT/eval/RESULTS.md`. It reads
 that JSON is elsewhere, pass `--train-test-ids "/absolute/path/to/train_test_ids.json"`. The `train`
 list must use the exact canonical subject names from the crop-level splits, with no leading or
 trailing whitespace. Additional keys in the partition file are ignored.
+
+The generated report displays mAP and Rank-1 as percentages rounded to one decimal
+for comparison with [RESULTS.md](RESULTS.md). Use the same checkpoint and split for each comparison.
+
+### Optional diagnostic runs
+
+For a broader ground-to-aerial or enrollment-to-field comparison, build the
+corresponding split below. These include videos outside the paper panels and
+appear in their own sections of the generated report.
+
+```bash
+python3 -m caliper_eval.split_from_combined --split-json "$S/test_ground-aerial_combined.json" \
+    --out-dir "$O/ground-aerial_test" --gallery-token ground --query-token aerial
+python3 -m caliper_eval.split_from_combined --split-json "$S/test_enroll-field_combined.json" \
+    --out-dir "$O/enroll-field_test" --gallery-token enroll --query-token field
+```
+
+For crop-level scores with CAL, reuse the saved features. This example scores
+up to 16 evenly spaced crops per video to limit the size of the distance matrix.
+
+```bash
+caliper-eval --features-dir "$REID_BENCH_ROOT/eval/combined_brc1_brc2/paperGR/cal/last" \
+    --pooling image --max-per-video 16
+```
+
 
 ## Reusing features and scores
 
@@ -171,8 +207,11 @@ frame filters. Use `--out` to choose a destination.
 
 The report checks the settings inside each score file, including its method, checkpoint source,
 split, and query groups. If it finds duplicate scores or only incompatible settings for a run,
-it reports the problem and leaves the previous report in place. Use a new or empty directory
-when converting a split.
+it reports the problem and leaves the previous report in place.
+
+An older CAL result that scored both images and videos already contains the video scores. You can use it as is.
+If rescoring leaves two eligible files, compare their video scores and checkpoint. Keep the score you intend to report
+in the feature directory and move the other JSON to an archive outside `$REID_BENCH_ROOT/eval/`.
 
 ## `caliper_eval` modules
 

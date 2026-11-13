@@ -248,6 +248,7 @@ features separate from the pretrained BoT results in `$REID_BENCH_ROOT/eval/`.
 | | |
 |---|---|
 | one seed per run | no repeated runs, so no estimate of run-to-run variance |
+| BoT seed scope | the CLI seed controls corpus selection, holdout and sampling; model initialization and augmentation are not fully seeded, so matching the CLI seed alone does not guarantee identical trained weights |
 | no GSD correction | synthetic crops keep their 400m source size (median 381 px), while real 1000m crops are 233 px, so after resizing the synthetic crops are sharper than the long-range imagery they stand in for. The simulation models turbulence, not the change in apparent size. |
 | range not balanced | the sampler balances identity only (see Shared setup) |
 
