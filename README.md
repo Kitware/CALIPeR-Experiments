@@ -21,10 +21,12 @@ python3 -m pip install -e .           # evaluation only (numpy)
 python3 -m pip install -e '.[train]'  # also the training modules (torch)
 ```
 
-Run these commands from the repository root in the Python environment used for your chosen method.
-Each method also needs its own upstream dependencies; see its README for dependency and checkpoint
-information. The upstream dataset and training examples describe those original projects; use the
-CALIPeR commands below and in [TRAINING.md](TRAINING.md) for this benchmark.
+Use Python 3.10 and the [requirements for your method](methods/ENVIRONMENTS.md) to run the
+extractors and trainers from the Git checkout. The shared NumPy evaluator also runs on Python
+3.7 and later and is available in the wheel and source distribution.
+
+Start in the repository root. Each method README lists its upstream checkpoints. For CALIPeR,
+follow the evaluation steps below and the [fine-tuning guide](TRAINING.md).
 
 Upstream examples use portable data, checkpoint and output paths. See
 [the method path conventions](methods/PORTABILITY.md) before running those workflows.
@@ -149,6 +151,29 @@ that JSON is elsewhere, pass `--train-test-ids "/absolute/path/to/train_test_ids
 list must use the exact canonical subject names from the crop-level splits, with no leading or
 trailing whitespace. Additional keys in the partition file are ignored.
 
+## Reusing features and scores
+
+Each `gallery_<token>.npz` or `query_<token>.npz` holds a feature matrix (`feats`) and one row
+per crop. The rows carry the subject and camera IDs (`pid`, `camid`), video, track ID, frame,
+and crop path relative to `crop_root`. The archive also records the subject mapping,
+checkpoint, method, source, split, and feature layer. SINet and X-TFCLIP repeat a tracklet’s
+feature on its crop rows and require video pooling.
+
+Each extraction wrapper checks the checkpoint, code, environment, split files, and saved features before
+reusing a cache. Use `--force` to rebuild it. The wrapper checks the new gallery and queries before
+replacing the cache and saves previous features and scores under `$REID_BENCH_ROOT/cache-archive/`.
+X-TFCLIP writes its optional native ablation under `$REID_BENCH_ROOT/ablations/`. You can also
+score older `.npz` files directly if their arrays, identity maps, and run settings agree.
+
+The paper settings (video means, cosine distance, all frames, no camera exclusion) write
+`eval_mean_cosine.json`. Other filenames include the pooling, distance, camera exclusion, and
+frame filters. Use `--out` to choose a destination.
+
+The report checks the settings inside each score file, including its method, checkpoint source,
+split, and query groups. If it finds duplicate scores or only incompatible settings for a run,
+it reports the problem and leaves the previous report in place. Use a new or empty directory
+when converting a split.
+
 ## `caliper_eval` modules
 
 **Evaluation** (numpy only):
@@ -175,8 +200,6 @@ trailing whitespace. Additional keys in the partition file are ignored.
 
 ## License
 
-Repository-authored shared code (`caliper_eval/`) and documentation are distributed under Apache
-License 2.0 (see [LICENSE](LICENSE)). Third-party code under `methods/` retains its included license
-notices; see [methods/UPSTREAM.md](methods/UPSTREAM.md) for source repositories. The GEFF and X-TFCLIP
-top-level directories currently contain no license file. Consult the applicable upstream terms
-before reusing third-party code.
+Repository-authored code and documentation use [Apache-2.0](LICENSE). Vendored
+code and weights retain their own terms, including MIT, noncommercial and AGPL
+components. See [method licenses and citations](methods/README.md) for author credits and the papers to cite.

@@ -1,9 +1,19 @@
 > ### Running CALIPeR
 >
 > For CALIPeR data setup and evaluation, follow the [benchmark README](../../README.md#reproducing-the-evaluation).
-> The benchmark entry points are `tasks/sapiensID/extract_features.sh` / `tasks/sapiensID/extract_caliper_features.py`.
-> This method is evaluated zero-shot in CALIPeR; no CALIPeR training adapter is provided.
-> The original method documentation follows.
+> Download the [pretrained WebBody model](tasks/sapiensID/README.md#pretrained-models).
+> Place `model.yaml` and `model.pth` in `methods/sapiensid/checkpoints/sapiensid_wb12m/`.
+> The checkout includes the aligner config (`yolo_dfa.yaml`), its face weights (`mobilenetv4_Final.pth`),
+> and the pose weights (`yolov8n-pose.pt`). The aligner reads the pose weights from your home cache.
+> Copy the pose weights to the cache once, from the CALIPeR repository root.
+>
+> ```bash
+> mkdir -p "$HOME/.cache"
+> cp -n methods/sapiensid/tasks/WebBody/c_detect/yolov8n-pose.pt "$HOME/.cache/yolov8n-pose.pt"
+> ```
+>
+> Run `tasks/sapiensID/extract_features.sh` from this method directory to extract features and
+> score a split. For example, use `SPLIT=ccg_test tasks/sapiensID/extract_features.sh` for longitudinal retrieval.
 
 # SapiensID
 

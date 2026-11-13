@@ -93,6 +93,8 @@ intervals; stage-1 checkpoints contain the learned prompts and can be reused wit
 
 ## Running
 
+Use the Python 3.10 method-specific requirements in [methods/ENVIRONMENTS.md](methods/ENVIRONMENTS.md).
+
 Every entry point needs `caliper_eval` importable: run `python3 -m pip install -e '.[train]'` at the
 repository root, or put the root on `PYTHONPATH`. Training expects exactly one visible GPU: set
 `CUDA_VISIBLE_DEVICES` to a single device.

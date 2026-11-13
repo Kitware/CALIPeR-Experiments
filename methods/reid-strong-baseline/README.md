@@ -1,26 +1,8 @@
 > ### Running CALIPeR
 >
-> This checkout is used for the CALIPeR ReID benchmark, for two things upstream does not cover:
->
-> * **Feature extraction** — `tools/extract_features.py` + `extract_features.sh`
-> * **Finetuning on the CALIPeR ground-field corpus** — `tools/train_caliper.py`,
->   `data/datasets/caliper_ground.py`, `configs/caliper_ground_softmax_triplet.yml`
->
-> Both need the `caliper_eval` package from the repository root on `PYTHONPATH` (or `pip install -e .`
-> at the repo root).
->
-> Start with the [benchmark README](../../README.md#reproducing-the-evaluation) for CALIPeR data setup
-> and evaluation. Use [TRAINING.md](../../TRAINING.md) for the fine-tuning corpus, sampler, and commands.
->
-> Modified upstream files:
->
-> * `engine/trainer.py` — ignite>=0.3 `ModelCheckpoint` API (the original call breaks `do_train` on
->   modern ignite); keeps every periodic checkpoint, model weights only.
-> * `config/defaults.py` — `DATASETS.ROOT_DIR` reads `CALIPER_DATA_ROOT`.
-> * `data/datasets/__init__.py` — registers the `kitbrc1` dataset.
->
-> The upstream README below covers the original project. Its Ignite 0.1.2 installation pin predates
-> this fork's trainer changes; the modified trainer uses the Ignite ≥ 0.3 checkpoint API.
+> Install the [BoT requirements](../ENVIRONMENTS.md), including pytorch-ignite 0.5.2.
+> Use `extract_features.sh` to extract and score features and `tools/train_caliper.py` for fine-tuning.
+> See the [evaluation guide](../../README.md#reproducing-the-evaluation) and [training guide](../../TRAINING.md).
 
 # Bag of Tricks and A Strong ReID Baseline
 

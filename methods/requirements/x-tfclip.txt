@@ -1,0 +1,6 @@
+-r common.txt
+yacs==0.1.8
+timm==0.9.7
+ftfy==6.1.1
+regex==2024.11.6
+einops==0.6.1

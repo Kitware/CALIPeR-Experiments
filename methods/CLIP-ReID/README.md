@@ -3,6 +3,8 @@
 > For CALIPeR data setup and evaluation, follow the [benchmark README](../../README.md#reproducing-the-evaluation).
 > The benchmark entry points are `extract_features.sh` / `extract_caliper_features.py` in this directory.
 > For CALIPeR fine-tuning, follow [TRAINING.md](../../TRAINING.md).
+> For this fork use [CALIPeR environments](../ENVIRONMENTS.md); the Torch 1.8
+> instructions below predate its checkpoint-loading API.
 > The original method documentation follows.
 
 ## CLIP-ReID: Exploiting Vision-Language Model for Image Re-Identification without Concrete Text Labels [[pdf]](https://arxiv.org/pdf/2211.13977.pdf)

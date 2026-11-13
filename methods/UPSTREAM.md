@@ -6,8 +6,9 @@ authorship, citation and license terms.
 
 For CALIPeR setup and evaluation, use the [benchmark README](../README.md) and
 [training guide](../TRAINING.md). Method READMEs retain the upstream workflows below a CALIPeR
-navigation note. The GEFF and X-TFCLIP top-level directories currently have no license file.
-Some nested components include their own license notices.
+navigation note, together with their paper citations and included license notices. See the
+[method licenses and citations](README.md)
+and the [CALIPeR environments](ENVIRONMENTS.md).
 
 Use the [path conventions](PORTABILITY.md) to set the working directory and locate datasets,
 checkpoints, and outputs for an upstream workflow.

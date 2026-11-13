@@ -1,4 +1,8 @@
 include README.md TRAINING.md RESULTS.md
+include methods/UPSTREAM.md methods/PORTABILITY.md methods/ENVIRONMENTS.md
+include methods/requirements/common.txt methods/requirements/bot.txt methods/requirements/sinet.txt
+include methods/requirements/clip-reid.txt methods/requirements/personvit.txt methods/requirements/cal.txt
+include methods/requirements/x-tfclip.txt methods/requirements/sapiensid.txt
 include turbulence_eval/README.md turbulence_eval/WORKFLOWS.md turbulence_eval/requirements.txt
 include turbulence_eval/_vendor/P2S_LICENSE
 prune turbulence_eval/configs

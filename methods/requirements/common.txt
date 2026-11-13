@@ -1,0 +1,9 @@
+# CALIPeR entrypoints: Python 3.10. Select the matching Torch CPU/CUDA wheels first.
+setuptools==80.9.0
+numpy==1.26.4
+torch==2.12.0
+torchvision==0.27.0
+Pillow==12.2.0
+PyYAML==6.0.3
+tqdm==4.67.1
+scipy==1.15.3
